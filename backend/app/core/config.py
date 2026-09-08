@@ -20,6 +20,20 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     UPLOAD_URL_PREFIX: str = "/static/uploads"
 
+    # Cloudflare R2 (S3-compatible) — when all four are set, image uploads go
+    # here instead of local disk, so they survive backend restarts/redeploys.
+    # Leave blank to fall back to local disk (fine for local dev only — never
+    # for production, since Render's disk is wiped on every deploy).
+    R2_ACCOUNT_ID: str = ""
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+    R2_BUCKET_NAME: str = ""
+    R2_PUBLIC_URL: str = ""  # e.g. https://pub-xxxxx.r2.dev or your custom domain
+
+    @property
+    def r2_configured(self) -> bool:
+        return bool(self.R2_ACCOUNT_ID and self.R2_ACCESS_KEY_ID and self.R2_SECRET_ACCESS_KEY and self.R2_BUCKET_NAME and self.R2_PUBLIC_URL)
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
