@@ -6,6 +6,7 @@ from app.db.models.category import Category
 from app.db.models.food import Food
 from app.db.models.food_price import FoodPrice
 from app.db.models.associations import UserGroup, UserBrand
+from app.db.models.order import Order, OrderItem
 
 __all__ = [
     "User",
@@ -18,4 +19,6 @@ __all__ = [
     "FoodPrice",
     "UserGroup",
     "UserBrand",
+    "Order",
+    "OrderItem",
 ]

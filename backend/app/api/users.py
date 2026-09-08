@@ -37,6 +37,7 @@ def _to_out(db: Session, user: User) -> UserOut:
         full_name=user.full_name,
         role=user.role,
         is_active=user.is_active,
+        avatar_url=user.avatar_url,
         group_id=group_id,
         brand_id=brand_id,
         zone_id=zone_id,

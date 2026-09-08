@@ -26,6 +26,8 @@ class BrandUpdate(BaseModel):
     description_en: Optional[str] = None
     description_kh: Optional[str] = None
     logo_url: Optional[str] = None
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
 
 
 class BrandAdminUpdate(BrandUpdate):
@@ -43,6 +45,8 @@ class BrandOut(BaseModel):
     description_en: Optional[str] = None
     description_kh: Optional[str] = None
     logo_url: Optional[str] = None
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
     created_at: datetime
 
     class Config:

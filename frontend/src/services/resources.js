@@ -71,6 +71,12 @@ export const menuApi = {
   get: () => api.get('/menu').then((r) => r.data),
 }
 
+// --- Orders ---
+export const ordersApi = {
+  create: (payload) => api.post('/orders', payload).then((r) => r.data),
+  list: (brandId) => api.get(`/brands/${brandId}/orders`).then((r) => r.data),
+}
+
 // --- Images ---
 export const imagesApi = {
   upload: (file) => {

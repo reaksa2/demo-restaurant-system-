@@ -4,7 +4,7 @@ import { Button, Input, EmptyState } from '../ui'
 import { Modal } from '../Modal'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 
-export default function ZonesTab({ brandId }) {
+export default function ZonesTab({ brandId, onChange }) {
   const [zones, setZones] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
@@ -25,7 +25,8 @@ export default function ZonesTab({ brandId }) {
       if (editing) await zonesApi.update(brandId, editing.id, form)
       else await zonesApi.create(brandId, form)
       setModalOpen(false)
-      load()
+      await load()
+      onChange?.()
     } catch (err) {
       setError(err.response?.data?.detail || 'Something went wrong.')
     }
@@ -34,7 +35,8 @@ export default function ZonesTab({ brandId }) {
   const remove = async (z) => {
     if (!confirm(`Delete zone "${z.name_en}"? Staff assigned to it and its prices will need to be reassigned.`)) return
     await zonesApi.remove(brandId, z.id)
-    load()
+    await load()
+    onChange?.()
   }
 
   if (loading) return <p className="text-sm text-slate">Loading…</p>

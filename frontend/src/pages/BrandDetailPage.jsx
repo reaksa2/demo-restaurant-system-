@@ -5,11 +5,13 @@ import BrandInfoTab from '../components/brand/BrandInfoTab'
 import ZonesTab from '../components/brand/ZonesTab'
 import CategoriesTab from '../components/brand/CategoriesTab'
 import FoodsTab from '../components/brand/FoodsTab'
+import OrdersTab from '../components/brand/OrdersTab'
 
 const TABS = [
   { key: 'foods', label: 'Foods' },
   { key: 'categories', label: 'Categories' },
   { key: 'zones', label: 'Zones' },
+  { key: 'orders', label: 'Orders' },
   { key: 'info', label: 'Brand info' },
 ]
 
@@ -22,16 +24,17 @@ export default function BrandDetailPage() {
   const [tab, setTab] = useState('foods')
   const [error, setError] = useState('')
 
+  const loadCategories = async () => {
+    setCategories(await categoriesApi.list(brandId))
+  }
+  const loadZones = async () => {
+    setZones(await zonesApi.list(brandId))
+  }
+
   const load = async () => {
     try {
-      const [b, c, z] = await Promise.all([
-        brandsApi.get(brandId),
-        categoriesApi.list(brandId),
-        zonesApi.list(brandId),
-      ])
+      const [b] = await Promise.all([brandsApi.get(brandId), loadCategories(), loadZones()])
       setBrand(b)
-      setCategories(c)
-      setZones(z)
     } catch {
       setError('You do not have access to this brand.')
     }
@@ -73,9 +76,10 @@ export default function BrandDetailPage() {
 
       <div className="mt-6">
         {tab === 'info' && <BrandInfoTab brand={brand} onUpdated={setBrand} />}
-        {tab === 'zones' && <ZonesTab brandId={brandId} />}
-        {tab === 'categories' && <CategoriesTab brandId={brandId} />}
+        {tab === 'zones' && <ZonesTab brandId={brandId} onChange={loadZones} />}
+        {tab === 'categories' && <CategoriesTab brandId={brandId} onChange={loadCategories} />}
         {tab === 'foods' && <FoodsTab brandId={brandId} categories={categories} zones={zones} />}
+        {tab === 'orders' && <OrdersTab brandId={brandId} />}
       </div>
     </div>
   )

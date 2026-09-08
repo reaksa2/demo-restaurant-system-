@@ -34,6 +34,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None or not user.is_active:
         raise credentials_exception
 
+    # Single-device login: a newer login (on any device) overwrites
+    # active_session_id, so an older token's sid stops matching and that
+    # device is signed out the next time it makes a request.
     if user.active_session_id != token_session_id:
         raise session_exception
 

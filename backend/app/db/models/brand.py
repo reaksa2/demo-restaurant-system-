@@ -23,6 +23,13 @@ class Brand(Base):
     description_kh = Column(String(2000), nullable=True)
     logo_url = Column(String(1000), nullable=True)
 
+    # Optional: when set, confirmed orders are sent to this Telegram group/chat.
+    # Both must be set for notifications to actually send; missing either one
+    # just means orders are created without a Telegram message (never blocks
+    # order creation itself).
+    telegram_bot_token = Column(String(255), nullable=True)
+    telegram_chat_id = Column(String(100), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -31,3 +38,4 @@ class Brand(Base):
     categories = relationship("Category", back_populates="brand", cascade="all, delete-orphan")
     foods = relationship("Food", back_populates="brand", cascade="all, delete-orphan")
     user_links = relationship("UserBrand", back_populates="brand", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="brand", cascade="all, delete-orphan")

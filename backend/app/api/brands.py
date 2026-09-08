@@ -14,16 +14,27 @@ from app.schemas.brand import BrandCreate, BrandUpdate, BrandAdminUpdate, BrandO
 router = APIRouter(prefix="/api/brands", tags=["brands"])
 
 
+def _to_out(brand: Brand, user) -> BrandOut:
+    out = BrandOut.model_validate(brand)
+    if user.role == UserRole.STAFF:
+        # Staff can read basic brand info but never the Telegram bot credentials.
+        out.telegram_bot_token = None
+        out.telegram_chat_id = None
+    return out
+
+
 @router.get("", response_model=list[BrandOut])
 def list_brands(scope: dict = Depends(get_current_user_scope), db: Session = Depends(get_db)):
     user = scope["user"]
     if user.role == UserRole.LEVEL1:
-        return db.query(Brand).order_by(Brand.name_en).all()
-    if user.role == UserRole.LEVEL2 and scope["group_id"] is not None:
-        return db.query(Brand).filter(Brand.group_id == scope["group_id"]).order_by(Brand.name_en).all()
-    if user.role in (UserRole.LEVEL3, UserRole.STAFF) and scope["brand_id"] is not None:
-        return db.query(Brand).filter(Brand.id == scope["brand_id"]).all()
-    return []
+        brands = db.query(Brand).order_by(Brand.name_en).all()
+    elif user.role == UserRole.LEVEL2 and scope["group_id"] is not None:
+        brands = db.query(Brand).filter(Brand.group_id == scope["group_id"]).order_by(Brand.name_en).all()
+    elif user.role in (UserRole.LEVEL3, UserRole.STAFF) and scope["brand_id"] is not None:
+        brands = db.query(Brand).filter(Brand.id == scope["brand_id"]).all()
+    else:
+        brands = []
+    return [_to_out(b, user) for b in brands]
 
 
 @router.get("/{brand_id}", response_model=BrandOut)
@@ -32,7 +43,7 @@ def get_brand(brand_id: uuid.UUID, scope: dict = Depends(get_current_user_scope)
     brand = db.query(Brand).filter(Brand.id == brand_id).first()
     if brand is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
-    return brand
+    return _to_out(brand, scope["user"])
 
 
 @router.post("", response_model=BrandOut, status_code=status.HTTP_201_CREATED)

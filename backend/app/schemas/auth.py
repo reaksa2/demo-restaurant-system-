@@ -21,9 +21,16 @@ class CurrentUserInfo(BaseModel):
     email: EmailStr
     full_name: str
     role: UserRole
+    avatar_url: Optional[str] = None
     group_id: Optional[uuid.UUID] = None   # set for LEVEL2
     brand_id: Optional[uuid.UUID] = None   # set for LEVEL3 and STAFF
     zone_id: Optional[uuid.UUID] = None    # set for STAFF only
 
     class Config:
         from_attributes = True
+
+
+class MyProfileUpdate(BaseModel):
+    """Any authenticated user can update their own name/avatar this way — no role check needed."""
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None

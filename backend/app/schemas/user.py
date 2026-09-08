@@ -35,6 +35,7 @@ class UserOut(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    avatar_url: Optional[str] = None
     group_id: Optional[uuid.UUID] = None
     brand_id: Optional[uuid.UUID] = None
     zone_id: Optional[uuid.UUID] = None

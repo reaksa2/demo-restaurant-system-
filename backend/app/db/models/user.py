@@ -28,7 +28,16 @@ class User(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Single-device login: holds a random ID generated at each login. The JWT
+    # issued at login embeds this same ID. Every authenticated request checks
+    # the token's ID against this column — a new login overwrites it, which
+    # silently invalidates whatever device was logged in before.
     active_session_id = Column(String(64), nullable=True)
+
+    # Profile picture, uploaded via /api/images/upload and set via /api/auth/me.
+    avatar_url = Column(String(1000), nullable=True)
+
     # LEVEL2 users: assignment to exactly one group (enforced in service layer,
     # modeled as many-to-many at the DB level for flexibility).
     group_links = relationship("UserGroup", back_populates="user", cascade="all, delete-orphan")
