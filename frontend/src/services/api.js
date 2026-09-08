@@ -31,6 +31,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      const message = error.response?.data?.detail;
+      if (message) {
+        sessionStorage.setItem("authNotice", message);
+      }
       localStorage.removeItem("token");
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";

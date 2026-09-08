@@ -1,7 +1,9 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_scope
+from app.api.deps import get_current_user_scope, get_current_user
 from app.core.security import verify_password, create_access_token
 from app.db.database import get_db
 from app.db.models.user import User
@@ -16,8 +18,18 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
 
-    token = create_access_token({"sub": str(user.id), "role": user.role.value})
+    session_id = uuid.uuid4().hex
+    user.active_session_id = session_id
+    db.commit()
+
+    token = create_access_token({"sub": str(user.id), "role": user.role.value, "sid": session_id})
     return TokenResponse(access_token=token)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user.active_session_id = None
+    db.commit()
 
 
 @router.get("/me", response_model=CurrentUserInfo)

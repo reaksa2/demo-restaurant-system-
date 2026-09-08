@@ -47,20 +47,30 @@ def clone_food_list(
     reported back as a warning instead of silently dropped.
     """
     user = scope["user"]
-    require_roles(user, UserRole.LEVEL2)
+    require_roles(user, UserRole.LEVEL1, UserRole.LEVEL2)
 
-    group_id = scope["group_id"]
     source_brand = db.query(Brand).filter(Brand.id == payload.source_brand_id).first()
     target_brand = db.query(Brand).filter(Brand.id == payload.target_brand_id).first()
 
     if source_brand is None or target_brand is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source or target brand not found")
 
-    if source_brand.group_id != group_id or target_brand.group_id != group_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Both brands must belong to your assigned group",
-        )
+    if user.role == UserRole.LEVEL2:
+        # Level 2 can only clone within their own assigned group.
+        group_id = scope["group_id"]
+        if source_brand.group_id != group_id or target_brand.group_id != group_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Both brands must belong to your assigned group",
+            )
+    else:
+        # Level 1 has no single assigned group, but cloning is still a
+        # within-group operation by design — both brands must share a group.
+        if source_brand.group_id != target_brand.group_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Both brands must belong to the same group",
+            )
 
     if source_brand.id == target_brand.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Source and target brand must differ")

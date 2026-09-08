@@ -28,7 +28,7 @@ class User(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
+    active_session_id = Column(String(64), nullable=True)
     # LEVEL2 users: assignment to exactly one group (enforced in service layer,
     # modeled as many-to-many at the DB level for flexibility).
     group_links = relationship("UserGroup", back_populates="user", cascade="all, delete-orphan")
