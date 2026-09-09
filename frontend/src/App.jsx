@@ -11,6 +11,7 @@ import BrandDetailPage from './pages/BrandDetailPage'
 import UsersPage from './pages/UsersPage'
 import ClonePage from './pages/ClonePage'
 import StaffMenuPage from './pages/StaffMenuPage'
+import StaffOrdersPage from './pages/StaffOrdersPage'
 
 const ADMIN_ROLES = ['level1', 'level2', 'level3']
 
@@ -26,6 +27,15 @@ export default function App() {
             element={
               <ProtectedRoute roles={['staff']}>
                 <StaffMenuPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/staff/orders"
+            element={
+              <ProtectedRoute roles={['staff']}>
+                <StaffOrdersPage />
               </ProtectedRoute>
             }
           />

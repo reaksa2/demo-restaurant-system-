@@ -75,6 +75,8 @@ export const menuApi = {
 export const ordersApi = {
   create: (payload) => api.post('/orders', payload).then((r) => r.data),
   list: (brandId) => api.get(`/brands/${brandId}/orders`).then((r) => r.data),
+  updateStatus: (brandId, orderId, status) =>
+    api.patch(`/brands/${brandId}/orders/${orderId}/status`, { status }).then((r) => r.data),
 }
 
 // --- Images ---

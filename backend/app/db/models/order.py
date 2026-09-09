@@ -1,11 +1,18 @@
+import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Numeric
+from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Numeric, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
+
+
+class OrderStatus(str, enum.Enum):
+    PENDING = "pending"      # just placed, not yet paid/closed out
+    COMPLETED = "completed"  # customer paid and left
+    CANCELLED = "cancelled"  # order voided (mistake, customer changed mind, etc.)
 
 
 class Order(Base):
@@ -25,12 +32,14 @@ class Order(Base):
 
     table_label = Column(String(100), nullable=True)
     total_amount = Column(Numeric(10, 2), nullable=False)
+    status = Column(Enum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
 
     # Whether the Telegram notification actually went out — useful for staff/
     # admin to notice a misconfigured bot without the order itself failing.
     telegram_notified = Column(String(20), default="not_configured", nullable=False)  # not_configured | sent | failed
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     brand = relationship("Brand", back_populates="orders")
     zone = relationship("Zone")

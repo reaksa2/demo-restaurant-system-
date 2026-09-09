@@ -11,10 +11,27 @@ from app.db.models.brand import Brand
 from app.db.models.food import Food
 from app.db.models.food_price import FoodPrice
 from app.db.models.order import Order, OrderItem
+from app.db.models.user import UserRole
 from app.db.models.zone import Zone
-from app.schemas.order import OrderCreate, OrderOut, OrderItemOut
+from app.schemas.order import OrderCreate, OrderOut, OrderItemOut, OrderStatusUpdate
 
 router = APIRouter(tags=["orders"])
+
+
+def _assert_order_access(db: Session, scope: dict, brand_id: uuid.UUID):
+    """
+    Viewing/managing orders (not placing them) is allowed for:
+      - Level 1/2/3, scoped the same way as managing any other brand content
+      - Staff, but only for their OWN assigned brand — they can see and close
+        out any table's order in their brand (not just ones they personally
+        placed), matching how a cashier actually works a shift.
+    """
+    user = scope["user"]
+    if user.role == UserRole.STAFF:
+        if scope["brand_id"] != brand_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this brand's orders")
+        return
+    assert_can_manage_brand_content(db, user, brand_id)
 
 
 def _to_out(order: Order) -> OrderOut:
@@ -25,6 +42,7 @@ def _to_out(order: Order) -> OrderOut:
         zone_name_kh=order.zone.name_kh if order.zone else None,
         placed_by_name=order.placed_by.full_name if order.placed_by else None,
         total_amount=order.total_amount,
+        status=order.status,
         telegram_notified=order.telegram_notified,
         created_at=order.created_at,
         items=[
@@ -48,6 +66,7 @@ async def create_order(payload: OrderCreate, scope: dict = Depends(require_staff
     member can never place an order for a brand or zone other than their own.
     Prices are resolved server-side from the CURRENT price for their zone,
     same trust boundary as the menu endpoint — never taken from the client.
+    New orders always start as "pending".
     """
     brand_id = scope["brand_id"]
     zone_id = scope["zone_id"]
@@ -127,8 +146,8 @@ async def create_order(payload: OrderCreate, scope: dict = Depends(require_staff
 
 @router.get("/api/brands/{brand_id}/orders", response_model=list[OrderOut])
 def list_orders(brand_id: uuid.UUID, scope: dict = Depends(get_current_user_scope), db: Session = Depends(get_db)):
-    """Admin view (Level 1/2/3) — staff never see other orders, only place their own."""
-    assert_can_manage_brand_content(db, scope["user"], brand_id)
+    """Level 1/2/3 (any brand they manage) or Staff (their own brand only)."""
+    _assert_order_access(db, scope, brand_id)
     orders = (
         db.query(Order)
         .options(joinedload(Order.items), joinedload(Order.zone), joinedload(Order.placed_by))
@@ -138,3 +157,32 @@ def list_orders(brand_id: uuid.UUID, scope: dict = Depends(get_current_user_scop
         .all()
     )
     return [_to_out(o) for o in orders]
+
+
+@router.patch("/api/brands/{brand_id}/orders/{order_id}/status", response_model=OrderOut)
+def update_order_status(
+    brand_id: uuid.UUID,
+    order_id: uuid.UUID,
+    payload: OrderStatusUpdate,
+    scope: dict = Depends(get_current_user_scope),
+    db: Session = Depends(get_db),
+):
+    """
+    Marks an order pending/completed/cancelled — e.g. staff mark a table
+    completed once the customer pays and leaves. Same access rule as viewing:
+    Level 1/2/3 for brands they manage, or Staff for their own brand.
+    """
+    _assert_order_access(db, scope, brand_id)
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.items), joinedload(Order.zone), joinedload(Order.placed_by))
+        .filter(Order.id == order_id, Order.brand_id == brand_id)
+        .first()
+    )
+    if order is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    order.status = payload.status
+    db.commit()
+    db.refresh(order)
+    return _to_out(order)

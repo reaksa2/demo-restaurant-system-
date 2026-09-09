@@ -5,6 +5,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.db.models.order import OrderStatus
+
 
 class OrderItemCreate(BaseModel):
     food_id: uuid.UUID
@@ -14,6 +16,10 @@ class OrderItemCreate(BaseModel):
 class OrderCreate(BaseModel):
     table_label: Optional[str] = None
     items: List[OrderItemCreate]
+
+
+class OrderStatusUpdate(BaseModel):
+    status: OrderStatus
 
 
 class OrderItemOut(BaseModel):
@@ -34,6 +40,7 @@ class OrderOut(BaseModel):
     zone_name_kh: Optional[str] = None
     placed_by_name: Optional[str] = None
     total_amount: Decimal
+    status: OrderStatus
     telegram_notified: str  # not_configured | sent | failed
     created_at: datetime
     items: List[OrderItemOut]

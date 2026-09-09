@@ -1,14 +1,16 @@
 import { useEffect, useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { menuApi, ordersApi } from '../services/resources'
 import { resolveMediaUrl } from '../services/api'
 import { useAuth } from '../stores/authStore'
 import { ProfileMenu } from '../components/ProfileMenu'
 import { Modal } from '../components/Modal'
 import { Button, Input } from '../components/ui'
-import { Plus, Minus, ShoppingCart, CheckCircle2 } from 'lucide-react'
+import { Plus, Minus, ShoppingCart, CheckCircle2, ClipboardList } from 'lucide-react'
 
 export default function StaffMenuPage() {
   const { logout } = useAuth()
+  const navigate = useNavigate()
   const [menu, setMenu] = useState(null)
   const [activeCategory, setActiveCategory] = useState('all')
   const [error, setError] = useState('')
@@ -80,7 +82,15 @@ export default function StaffMenuPage() {
               <p className="text-sm text-slate">{menu.brand.name_en}</p>
             </div>
           </div>
-          <ProfileMenu dropDirection="down" />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/staff/orders')}
+              className="flex items-center gap-1.5 rounded-md border border-sand px-3 py-2 text-sm text-slate hover:bg-paper hover:text-ink"
+            >
+              <ClipboardList size={16} /> Orders
+            </button>
+            <ProfileMenu dropDirection="down" />
+          </div>
         </div>
 
         {topCategories.length > 0 && (
