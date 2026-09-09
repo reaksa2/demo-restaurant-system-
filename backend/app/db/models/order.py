@@ -32,7 +32,11 @@ class Order(Base):
 
     table_label = Column(String(100), nullable=True)
     total_amount = Column(Numeric(10, 2), nullable=False)
-    status = Column(Enum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
+    status = Column(
+        Enum(OrderStatus, values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        default=OrderStatus.PENDING,
+        nullable=False,
+    )
 
     # Whether the Telegram notification actually went out — useful for staff/
     # admin to notice a misconfigured bot without the order itself failing.
