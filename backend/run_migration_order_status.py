@@ -9,7 +9,8 @@ migrations for: order status tracking.
 """
 import psycopg2
 
-DATABASE_URL = "postgresql://neondb_owner:npg_BRVFPeLnEi15@ep-ancient-fire-a51owl3t-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL = "postgresql://neondb_owner:npg_geSs76zYRvZl@ep-muddy-unit-b3b2he3d-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
 
 conn = psycopg2.connect(DATABASE_URL)
 conn.autocommit = True
