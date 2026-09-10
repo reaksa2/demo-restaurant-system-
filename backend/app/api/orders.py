@@ -76,6 +76,11 @@ async def create_order(payload: OrderCreate, scope: dict = Depends(require_staff
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order must include at least one item")
 
     brand = db.query(Brand).filter(Brand.id == brand_id).first()
+    if brand is not None and not brand.ordering_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ordering is turned off for this brand. Please take the order down manually.",
+        )
 
     order_items: list[OrderItem] = []
     total = 0

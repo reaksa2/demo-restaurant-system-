@@ -17,9 +17,7 @@ conn.autocommit = True
 cur = conn.cursor()
 
 statements = [
-    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending';",
-    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();",
-    "UPDATE orders SET status = LOWER(status);",
+    "ALTER TABLE brands ADD COLUMN ordering_enabled BOOLEAN NOT NULL DEFAULT true;"
 ]
 
 for i, sql in enumerate(statements, 1):

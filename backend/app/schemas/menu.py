@@ -15,6 +15,7 @@ class BrandMenuInfo(BaseModel):
     description_en: Optional[str] = None
     description_kh: Optional[str] = None
     logo_url: Optional[str] = None
+    ordering_enabled: bool
 
     class Config:
         from_attributes = True
