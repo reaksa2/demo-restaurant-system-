@@ -8,7 +8,7 @@ import FoodsTab from '../components/brand/FoodsTab'
 import OrdersTab from '../components/brand/OrdersTab'
 
 const TABS = [
-  { key: 'foods', label: 'Foods' },
+  { key: 'foods', label: 'Foods & Drink' },
   { key: 'categories', label: 'Categories' },
   { key: 'zones', label: 'Zones' },
   { key: 'orders', label: 'Orders' },
