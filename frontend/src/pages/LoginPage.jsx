@@ -8,7 +8,7 @@ export default function LoginPage() {
   const { login, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -33,11 +33,11 @@ export default function LoginPage() {
     setError('')
     setSubmitting(true)
     try {
-      await login(email, password)
+      await login(identifier, password)
       const dest = location.state?.from || '/admin'
       navigate(dest, { replace: true })
     } catch (err) {
-      setError(err.response?.data?.detail || 'Incorrect email or password.')
+      setError(err.response?.data?.detail || 'Incorrect email/username or password.')
     } finally {
       setSubmitting(false)
     }
@@ -62,13 +62,13 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-sand bg-white p-6">
           <Input
-            label="Email"
-            type="email"
+            label="Email or Username"
+            type="text"
             required
             autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="you@example.com or username"
           />
           <Input
             label="Password"

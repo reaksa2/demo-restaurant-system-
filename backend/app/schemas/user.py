@@ -9,6 +9,7 @@ from app.db.models.user import UserRole
 
 class UserCreate(BaseModel):
     email: EmailStr
+    username: Optional[str] = None
     password: str = Field(min_length=8)
     full_name: str
     role: UserRole
@@ -24,6 +25,7 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
+    username: Optional[str] = None
     password: Optional[str] = Field(default=None, min_length=8)
     is_active: Optional[bool] = None
     zone_id: Optional[uuid.UUID] = None  # allow re-assigning a staff member's zone
@@ -32,6 +34,7 @@ class UserUpdate(BaseModel):
 class UserOut(BaseModel):
     id: uuid.UUID
     email: EmailStr
+    username: Optional[str] = None
     full_name: str
     role: UserRole
     is_active: bool

@@ -29,8 +29,8 @@ export function AuthProvider({ children }) {
     refresh()
   }, [refresh])
 
-  const login = async (email, password) => {
-    await authService.login(email, password)
+  const login = async (identifier, password) => {
+    await authService.login(identifier, password)
     await refresh()
   }
 

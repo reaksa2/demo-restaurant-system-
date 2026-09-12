@@ -21,6 +21,7 @@ class User(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    username = Column(String(50), unique=True, nullable=True, index=True)  # optional; login accepts either
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), nullable=False)

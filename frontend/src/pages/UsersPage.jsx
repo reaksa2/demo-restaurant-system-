@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../stores/authStore'
 import { usersApi, groupsApi, brandsApi, zonesApi } from '../services/resources'
-import { Button, Input, Select, Badge, EmptyState } from '../components/ui'
+import { Button, Input, Select, Badge, Checkbox, EmptyState } from '../components/ui'
 import { Modal } from '../components/Modal'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Pencil } from 'lucide-react'
 
 const ROLE_LABELS = { level1: 'Developer', level2: 'Group Manager', level3: 'Brand Manager', staff: 'Staff' }
 const ROLE_TONES = { level1: 'accent', level2: 'accent', level3: 'default', staff: 'success' }
@@ -21,11 +21,16 @@ export default function UsersPage() {
   const [brands, setBrands] = useState([])
   const [zones, setZones] = useState([])
   const [loading, setLoading] = useState(true)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [error, setError] = useState('')
 
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createError, setCreateError] = useState('')
   const creatableRoles = CREATABLE_ROLES[user.role] || []
-  const [form, setForm] = useState({ email: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '' })
+  const [createForm, setCreateForm] = useState({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '' })
+
+  const [editingUser, setEditingUser] = useState(null)
+  const [editForm, setEditForm] = useState({ full_name: '', username: '', password: '', is_active: true, zone_id: '' })
+  const [editZones, setEditZones] = useState([])
+  const [editError, setEditError] = useState('')
 
   const load = async () => {
     const [u, b] = await Promise.all([usersApi.list(), brandsApi.list()])
@@ -37,32 +42,59 @@ export default function UsersPage() {
   useEffect(() => { load() }, [])
 
   useEffect(() => {
-    if (form.role === 'staff' && form.brand_id) {
-      zonesApi.list(form.brand_id).then(setZones)
+    if (createForm.role === 'staff' && createForm.brand_id) {
+      zonesApi.list(createForm.brand_id).then(setZones)
     } else {
       setZones([])
     }
-  }, [form.role, form.brand_id])
+  }, [createForm.role, createForm.brand_id])
 
   const openCreate = () => {
-    setForm({ email: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '' })
-    setError('')
-    setModalOpen(true)
+    setCreateForm({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '' })
+    setCreateError('')
+    setCreateOpen(true)
   }
 
-  const save = async (e) => {
+  const saveCreate = async (e) => {
     e.preventDefault()
-    setError('')
+    setCreateError('')
     try {
-      const payload = { email: form.email, password: form.password, full_name: form.full_name, role: form.role }
-      if (form.role === 'level2') payload.group_id = form.group_id
-      if (form.role === 'level3') payload.brand_id = form.brand_id
-      if (form.role === 'staff') { payload.brand_id = form.brand_id; payload.zone_id = form.zone_id }
+      const payload = { email: createForm.email, password: createForm.password, full_name: createForm.full_name, role: createForm.role }
+      if (createForm.username.trim()) payload.username = createForm.username.trim()
+      if (createForm.role === 'level2') payload.group_id = createForm.group_id
+      if (createForm.role === 'level3') payload.brand_id = createForm.brand_id
+      if (createForm.role === 'staff') { payload.brand_id = createForm.brand_id; payload.zone_id = createForm.zone_id }
       await usersApi.create(payload)
-      setModalOpen(false)
+      setCreateOpen(false)
       load()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Something went wrong.')
+      setCreateError(err.response?.data?.detail || 'Something went wrong.')
+    }
+  }
+
+  const openEdit = async (u) => {
+    setEditingUser(u)
+    setEditForm({ full_name: u.full_name, username: u.username || '', password: '', is_active: u.is_active, zone_id: u.zone_id || '' })
+    setEditError('')
+    if (u.role === 'staff' && u.brand_id) {
+      setEditZones(await zonesApi.list(u.brand_id))
+    } else {
+      setEditZones([])
+    }
+  }
+
+  const saveEdit = async (e) => {
+    e.preventDefault()
+    setEditError('')
+    try {
+      const payload = { full_name: editForm.full_name, username: editForm.username.trim() || null, is_active: editForm.is_active }
+      if (editForm.password) payload.password = editForm.password
+      if (editingUser.role === 'staff' && editForm.zone_id) payload.zone_id = editForm.zone_id
+      await usersApi.update(editingUser.id, payload)
+      setEditingUser(null)
+      load()
+    } catch (err) {
+      setEditError(err.response?.data?.detail || 'Something went wrong.')
     }
   }
 
@@ -74,6 +106,8 @@ export default function UsersPage() {
 
   const brandName = (id) => brands.find((b) => b.id === id)?.name_en
   const groupName = (id) => groups.find((g) => g.id === id)?.name
+
+  const canEditUsers = user.role !== 'staff'
 
   if (loading) return <p className="text-sm text-slate">Loading…</p>
 
@@ -107,49 +141,86 @@ export default function UsersPage() {
                   {u.brand_id && ` · ${brandName(u.brand_id) || 'brand'}`}
                 </p>
               </div>
-              <Button variant="ghost" onClick={() => remove(u)}><Trash2 size={15} /></Button>
+              <div className="flex gap-1">
+                {canEditUsers && <Button variant="ghost" onClick={() => openEdit(u)}><Pencil size={15} /></Button>}
+                <Button variant="ghost" onClick={() => remove(u)}><Trash2 size={15} /></Button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New user">
-        <form onSubmit={save} className="space-y-4">
-          <Input label="Full name" required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
-          <Input label="Email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Input label="Password" type="password" required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="New user">
+        <form onSubmit={saveCreate} className="space-y-4">
+          <Input label="Full name" required value={createForm.full_name} onChange={(e) => setCreateForm({ ...createForm, full_name: e.target.value })} />
+          <Input label="Email" type="email" required value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
+          <Input label="Username (optional)" value={createForm.username} onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })} placeholder="Lets them log in without their email" />
+          <Input label="Password" type="password" required minLength={8} value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
 
-          <Select label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value, brand_id: '', group_id: '', zone_id: '' })}>
+          <Select label="Role" value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value, brand_id: '', group_id: '', zone_id: '' })}>
             {creatableRoles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
           </Select>
 
-          {form.role === 'level2' && (
-            <Select label="Group" required value={form.group_id} onChange={(e) => setForm({ ...form, group_id: e.target.value })}>
+          {createForm.role === 'level2' && (
+            <Select label="Group" required value={createForm.group_id} onChange={(e) => setCreateForm({ ...createForm, group_id: e.target.value })}>
               <option value="">Select a group</option>
               {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </Select>
           )}
 
-          {(form.role === 'level3' || form.role === 'staff') && (
-            <Select label="Brand" required value={form.brand_id} onChange={(e) => setForm({ ...form, brand_id: e.target.value })}>
+          {(createForm.role === 'level3' || createForm.role === 'staff') && (
+            <Select label="Brand" required value={createForm.brand_id} onChange={(e) => setCreateForm({ ...createForm, brand_id: e.target.value })}>
               <option value="">Select a brand</option>
               {brands.map((b) => <option key={b.id} value={b.id}>{b.name_en}</option>)}
             </Select>
           )}
 
-          {form.role === 'staff' && form.brand_id && (
-            <Select label="Zone" required value={form.zone_id} onChange={(e) => setForm({ ...form, zone_id: e.target.value })}>
+          {createForm.role === 'staff' && createForm.brand_id && (
+            <Select label="Zone" required value={createForm.zone_id} onChange={(e) => setCreateForm({ ...createForm, zone_id: e.target.value })}>
               <option value="">Select a zone</option>
               {zones.map((z) => <option key={z.id} value={z.id}>{z.name_en}</option>)}
             </Select>
           )}
 
-          {error && <p className="text-sm text-clay">{error}</p>}
+          {createError && <p className="text-sm text-clay">{createError}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>Cancel</Button>
             <Button type="submit">Create user</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal open={!!editingUser} onClose={() => setEditingUser(null)} title={editingUser ? `Edit ${editingUser.full_name}` : 'Edit user'}>
+        {editingUser && (
+          <form onSubmit={saveEdit} className="space-y-4">
+            <p className="text-sm text-slate">{editingUser.email}</p>
+            <Input label="Full name" required value={editForm.full_name} onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })} />
+            <Input label="Username (optional)" value={editForm.username} onChange={(e) => setEditForm({ ...editForm, username: e.target.value })} placeholder="Lets them log in without their email" />
+            <Input
+              label="New password (optional)"
+              type="password"
+              minLength={8}
+              placeholder="Leave blank to keep current password"
+              value={editForm.password}
+              onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+            />
+            {editingUser.role === 'staff' && editZones.length > 0 && (
+              <Select label="Zone" value={editForm.zone_id} onChange={(e) => setEditForm({ ...editForm, zone_id: e.target.value })}>
+                {editZones.map((z) => <option key={z.id} value={z.id}>{z.name_en}</option>)}
+              </Select>
+            )}
+            <Checkbox
+              label="Account active (uncheck to block this person from logging in)"
+              checked={editForm.is_active}
+              onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
+            />
+            {editError && <p className="text-sm text-clay">{editError}</p>}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="secondary" onClick={() => setEditingUser(null)}>Cancel</Button>
+              <Button type="submit">Save changes</Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   )

@@ -34,6 +34,7 @@ def _to_out(db: Session, user: User) -> UserOut:
     return UserOut(
         id=user.id,
         email=user.email,
+        username=user.username,
         full_name=user.full_name,
         role=user.role,
         is_active=user.is_active,
@@ -84,6 +85,8 @@ def create_user(payload: UserCreate, scope: dict = Depends(get_current_user_scop
 
     if db.query(User).filter(User.email == payload.email).first() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    if payload.username and db.query(User).filter(User.username == payload.username).first() is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
 
     # --- who can create whom ---
     if creator.role == UserRole.LEVEL1:
@@ -139,6 +142,7 @@ def create_user(payload: UserCreate, scope: dict = Depends(get_current_user_scop
     # --- create ---
     user = User(
         email=payload.email,
+        username=payload.username,
         password_hash=hash_password(payload.password),
         full_name=payload.full_name,
         role=payload.role,
@@ -177,6 +181,10 @@ def update_user(
 
     if payload.full_name is not None:
         target.full_name = payload.full_name
+    if payload.username is not None:
+        if payload.username and db.query(User).filter(User.username == payload.username, User.id != target.id).first() is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+        target.username = payload.username or None
     if payload.password is not None:
         target.password_hash = hash_password(payload.password)
     if payload.is_active is not None:

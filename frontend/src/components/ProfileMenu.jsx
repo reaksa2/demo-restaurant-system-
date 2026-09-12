@@ -49,12 +49,14 @@ export function ProfileMenu({ theme = 'light', dropDirection = 'up' }) {
   const [open, setOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [fullName, setFullName] = useState(user.full_name)
+  const [username, setUsername] = useState(user.username || '')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const openProfile = () => {
     setFullName(user.full_name)
+    setUsername(user.username || '')
     setError('')
     setOpen(false)
     setModalOpen(true)
@@ -81,7 +83,7 @@ export function ProfileMenu({ theme = 'light', dropDirection = 'up' }) {
     setSaving(true)
     setError('')
     try {
-      await updateMyProfile({ full_name: fullName })
+      await updateMyProfile({ full_name: fullName, username: username.trim() || null })
       await refresh()
       setModalOpen(false)
     } catch (err) {
@@ -149,6 +151,12 @@ export function ProfileMenu({ theme = 'light', dropDirection = 'up' }) {
 
           <form onSubmit={saveName} className="space-y-4">
             <Input label="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+            <Input
+              label="Username (optional)"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. jsmith — lets you log in without your email"
+            />
             {error && <p className="text-sm text-clay">{error}</p>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Close</Button>

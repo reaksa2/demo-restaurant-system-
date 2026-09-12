@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_scope, get_current_user
@@ -14,9 +15,11 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+    # Accepts either the account's email or its (optional) username in the
+    # same field — whichever matches.
+    user = db.query(User).filter(or_(User.email == payload.identifier, User.username == payload.identifier)).first()
     if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email/username or password")
 
     # Single-device login: a fresh session id here immediately invalidates
     # whatever device/token was previously logged in as this user.
@@ -41,6 +44,7 @@ def get_me(scope: dict = Depends(get_current_user_scope)):
     return CurrentUserInfo(
         id=user.id,
         email=user.email,
+        username=user.username,
         full_name=user.full_name,
         role=user.role,
         avatar_url=user.avatar_url,
@@ -57,12 +61,19 @@ def update_my_profile(
     db: Session = Depends(get_db),
 ):
     """
-    Any authenticated user (any role) can update their own display name and
-    avatar this way — deliberately separate from the admin /api/users
-    endpoints, which are role-scoped and can't be used by staff on themselves.
+    Any authenticated user (any role) can update their own display name,
+    avatar, and username this way — deliberately separate from the admin
+    /api/users endpoints, which are role-scoped and can't be used by staff
+    on themselves.
     """
     user: User = scope["user"]
     data = payload.model_dump(exclude_unset=True)
+
+    if "username" in data and data["username"]:
+        existing = db.query(User).filter(User.username == data["username"], User.id != user.id).first()
+        if existing is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That username is already taken")
+
     for field, value in data.items():
         setattr(user, field, value)
     db.commit()
@@ -71,6 +82,7 @@ def update_my_profile(
     return CurrentUserInfo(
         id=user.id,
         email=user.email,
+        username=user.username,
         full_name=user.full_name,
         role=user.role,
         avatar_url=user.avatar_url,

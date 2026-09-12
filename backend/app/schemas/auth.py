@@ -7,7 +7,7 @@ from app.db.models.user import UserRole
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    identifier: str  # accepts either the account's email OR username
     password: str
 
 
@@ -19,6 +19,7 @@ class TokenResponse(BaseModel):
 class CurrentUserInfo(BaseModel):
     id: uuid.UUID
     email: EmailStr
+    username: Optional[str] = None
     full_name: str
     role: UserRole
     avatar_url: Optional[str] = None
@@ -31,6 +32,7 @@ class CurrentUserInfo(BaseModel):
 
 
 class MyProfileUpdate(BaseModel):
-    """Any authenticated user can update their own name/avatar this way — no role check needed."""
+    """Any authenticated user can update their own name/avatar/username this way — no role check needed."""
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    username: Optional[str] = None

@@ -11,13 +11,13 @@ import psycopg2
 
 DATABASE_URL = "postgresql://neondb_owner:npg_geSs76zYRvZl@ep-muddy-unit-b3b2he3d-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
+
 conn = psycopg2.connect(DATABASE_URL)
 conn.autocommit = True
 cur = conn.cursor()
 
 statements = [
-    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending';",
-    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();",
+    "ALTER TABLE users ADD COLUMN username VARCHAR(50) UNIQUE;"
 ]
 
 for i, sql in enumerate(statements, 1):
