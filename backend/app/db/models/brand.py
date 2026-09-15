@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, String, DateTime, ForeignKey, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -22,6 +22,13 @@ class Brand(Base):
     description_en = Column(String(2000), nullable=True)
     description_kh = Column(String(2000), nullable=True)
     logo_url = Column(String(1000), nullable=True)
+
+    # Optional: a custom background image for the staff/customer menu screen.
+    # When unset, the menu keeps its default plain paper-colored background.
+    # Opacity (0-100) controls how strong the image shows through, so
+    # foreground text stays readable regardless of how busy the photo is.
+    background_image_url = Column(String(1000), nullable=True)
+    background_opacity = Column(Integer, default=15, nullable=False)
 
     # Optional: when set, confirmed orders are sent to this Telegram group/chat.
     # Both must be set for notifications to actually send; missing either one

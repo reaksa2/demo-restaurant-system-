@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BrandCreate(BaseModel):
@@ -26,6 +26,8 @@ class BrandUpdate(BaseModel):
     description_en: Optional[str] = None
     description_kh: Optional[str] = None
     logo_url: Optional[str] = None
+    background_image_url: Optional[str] = None
+    background_opacity: Optional[int] = Field(default=None, ge=0, le=100)
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
 
@@ -48,6 +50,8 @@ class BrandOut(BaseModel):
     description_en: Optional[str] = None
     description_kh: Optional[str] = None
     logo_url: Optional[str] = None
+    background_image_url: Optional[str] = None
+    background_opacity: int
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     ordering_enabled: bool
