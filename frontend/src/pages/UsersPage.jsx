@@ -25,10 +25,10 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [createError, setCreateError] = useState('')
   const creatableRoles = CREATABLE_ROLES[user.role] || []
-  const [createForm, setCreateForm] = useState({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '' })
+  const [createForm, setCreateForm] = useState({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '', max_devices: '1' })
 
   const [editingUser, setEditingUser] = useState(null)
-  const [editForm, setEditForm] = useState({ full_name: '', username: '', password: '', is_active: true, zone_id: '' })
+  const [editForm, setEditForm] = useState({ full_name: '', username: '', password: '', is_active: true, zone_id: '', max_devices: '1' })
   const [editZones, setEditZones] = useState([])
   const [editError, setEditError] = useState('')
 
@@ -50,7 +50,7 @@ export default function UsersPage() {
   }, [createForm.role, createForm.brand_id])
 
   const openCreate = () => {
-    setCreateForm({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '' })
+    setCreateForm({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '', max_devices: '1' })
     setCreateError('')
     setCreateOpen(true)
   }
@@ -59,11 +59,15 @@ export default function UsersPage() {
     e.preventDefault()
     setCreateError('')
     try {
-      const payload = { email: createForm.email, password: createForm.password, full_name: createForm.full_name, role: createForm.role }
+      const payload = { email: createForm.email, password: createForm.password, full_name: createForm.full_name, role: createForm.role, max_devices: Number(createForm.max_devices) || 1 }
       if (createForm.username.trim()) payload.username = createForm.username.trim()
       if (createForm.role === 'level2') payload.group_id = createForm.group_id
       if (createForm.role === 'level3') payload.brand_id = createForm.brand_id
-      if (createForm.role === 'staff') { payload.brand_id = createForm.brand_id; payload.zone_id = createForm.zone_id }
+      // zone_id left out entirely when blank -> staff gets all-zone (tabbed) access
+      if (createForm.role === 'staff') {
+        payload.brand_id = createForm.brand_id
+        if (createForm.zone_id) payload.zone_id = createForm.zone_id
+      }
       await usersApi.create(payload)
       setCreateOpen(false)
       load()
@@ -74,7 +78,7 @@ export default function UsersPage() {
 
   const openEdit = async (u) => {
     setEditingUser(u)
-    setEditForm({ full_name: u.full_name, username: u.username || '', password: '', is_active: u.is_active, zone_id: u.zone_id || '' })
+    setEditForm({ full_name: u.full_name, username: u.username || '', password: '', is_active: u.is_active, zone_id: u.zone_id || '', max_devices: String(u.max_devices || 1) })
     setEditError('')
     if (u.role === 'staff' && u.brand_id) {
       setEditZones(await zonesApi.list(u.brand_id))
@@ -87,9 +91,11 @@ export default function UsersPage() {
     e.preventDefault()
     setEditError('')
     try {
-      const payload = { full_name: editForm.full_name, username: editForm.username.trim() || null, is_active: editForm.is_active }
+      const payload = { full_name: editForm.full_name, username: editForm.username.trim() || null, is_active: editForm.is_active, max_devices: Number(editForm.max_devices) || 1 }
       if (editForm.password) payload.password = editForm.password
-      if (editingUser.role === 'staff' && editForm.zone_id) payload.zone_id = editForm.zone_id
+      // Always send zone_id for staff (even blank/null) so the backend can
+      // tell "switch to all zones" apart from "leave zone access as-is".
+      if (editingUser.role === 'staff') payload.zone_id = editForm.zone_id || null
       await usersApi.update(editingUser.id, payload)
       setEditingUser(null)
       load()
@@ -139,6 +145,8 @@ export default function UsersPage() {
                   {u.email}
                   {u.group_id && ` · ${groupName(u.group_id) || 'group'}`}
                   {u.brand_id && ` · ${brandName(u.brand_id) || 'brand'}`}
+                  {u.role === 'staff' && (u.zone_id ? ' · Locked to one zone' : ' · All zones (tabs)')}
+                  {` · Max ${u.max_devices || 1} device${(u.max_devices || 1) === 1 ? '' : 's'}`}
                 </p>
               </div>
               <div className="flex gap-1">
@@ -176,10 +184,22 @@ export default function UsersPage() {
           )}
 
           {createForm.role === 'staff' && createForm.brand_id && (
-            <Select label="Zone" required value={createForm.zone_id} onChange={(e) => setCreateForm({ ...createForm, zone_id: e.target.value })}>
-              <option value="">Select a zone</option>
-              {zones.map((z) => <option key={z.id} value={z.id}>{z.name_en}</option>)}
+            <Select label="Zone access" value={createForm.zone_id} onChange={(e) => setCreateForm({ ...createForm, zone_id: e.target.value })}>
+              <option value="">All zones (staff sees a tab for each)</option>
+              {zones.map((z) => <option key={z.id} value={z.id}>{z.name_en} only</option>)}
             </Select>
+          )}
+
+          {(createForm.role === 'level2' || createForm.role === 'level3' || createForm.role === 'staff') && (
+            <Input
+              label="Max devices logged in at once"
+              type="number"
+              min={1}
+              max={20}
+              required
+              value={createForm.max_devices}
+              onChange={(e) => setCreateForm({ ...createForm, max_devices: e.target.value })}
+            />
           )}
 
           {createError && <p className="text-sm text-clay">{createError}</p>}
@@ -204,11 +224,21 @@ export default function UsersPage() {
               value={editForm.password}
               onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
             />
-            {editingUser.role === 'staff' && editZones.length > 0 && (
-              <Select label="Zone" value={editForm.zone_id} onChange={(e) => setEditForm({ ...editForm, zone_id: e.target.value })}>
-                {editZones.map((z) => <option key={z.id} value={z.id}>{z.name_en}</option>)}
+            {editingUser.role === 'staff' && (
+              <Select label="Zone access" value={editForm.zone_id} onChange={(e) => setEditForm({ ...editForm, zone_id: e.target.value })}>
+                <option value="">All zones (staff sees a tab for each)</option>
+                {editZones.map((z) => <option key={z.id} value={z.id}>{z.name_en} only</option>)}
               </Select>
             )}
+            <Input
+              label="Max devices logged in at once"
+              type="number"
+              min={1}
+              max={20}
+              required
+              value={editForm.max_devices}
+              onChange={(e) => setEditForm({ ...editForm, max_devices: e.target.value })}
+            />
             <Checkbox
               label="Account active (uncheck to block this person from logging in)"
               checked={editForm.is_active}

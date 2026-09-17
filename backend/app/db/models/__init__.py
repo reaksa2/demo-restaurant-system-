@@ -1,4 +1,5 @@
 from app.db.models.user import User, UserRole
+from app.db.models.session import UserSession
 from app.db.models.group import Group
 from app.db.models.brand import Brand
 from app.db.models.zone import Zone
@@ -11,6 +12,7 @@ from app.db.models.order import Order, OrderItem
 __all__ = [
     "User",
     "UserRole",
+    "UserSession",
     "Group",
     "Brand",
     "Zone",

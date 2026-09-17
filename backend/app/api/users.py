@@ -42,6 +42,7 @@ def _to_out(db: Session, user: User) -> UserOut:
         group_id=group_id,
         brand_id=brand_id,
         zone_id=zone_id,
+        max_devices=user.max_devices,
         created_at=user.created_at,
     )
 
@@ -124,14 +125,18 @@ def create_user(payload: UserCreate, scope: dict = Depends(get_current_user_scop
         brand_id = payload.brand_id
 
     elif payload.role == UserRole.STAFF:
-        if payload.brand_id is None or payload.zone_id is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="brand_id and zone_id are required for staff")
+        if payload.brand_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="brand_id is required for staff")
         brand = db.query(Brand).filter(Brand.id == payload.brand_id).first()
         if brand is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
-        zone = db.query(Zone).filter(Zone.id == payload.zone_id, Zone.brand_id == payload.brand_id).first()
-        if zone is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found in this brand")
+        # zone_id is optional: leave it unset for a staff account that can
+        # browse every zone in the brand via tabs, or set it to lock the
+        # account to just that one zone.
+        if payload.zone_id is not None:
+            zone = db.query(Zone).filter(Zone.id == payload.zone_id, Zone.brand_id == payload.brand_id).first()
+            if zone is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found in this brand")
         if creator.role == UserRole.LEVEL2 and brand.group_id != scope["group_id"]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="That brand is outside your group")
         if creator.role == UserRole.LEVEL3 and payload.brand_id != scope["brand_id"]:
@@ -146,6 +151,7 @@ def create_user(payload: UserCreate, scope: dict = Depends(get_current_user_scop
         password_hash=hash_password(payload.password),
         full_name=payload.full_name,
         role=payload.role,
+        max_devices=payload.max_devices,
     )
     db.add(user)
     db.flush()  # get user.id without committing yet
@@ -179,23 +185,33 @@ def update_user(
     if creator.role == UserRole.STAFF:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff cannot manage users")
 
-    if payload.full_name is not None:
-        target.full_name = payload.full_name
-    if payload.username is not None:
-        if payload.username and db.query(User).filter(User.username == payload.username, User.id != target.id).first() is not None:
+    # exclude_unset so a "zone_id": null in the request body (switching a
+    # staff account to all-zone access) is distinguishable from the field
+    # being left out entirely (leave zone access unchanged).
+    data = payload.model_dump(exclude_unset=True)
+
+    if "full_name" in data and data["full_name"] is not None:
+        target.full_name = data["full_name"]
+    if "username" in data:
+        new_username = data["username"]
+        if new_username and db.query(User).filter(User.username == new_username, User.id != target.id).first() is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
-        target.username = payload.username or None
-    if payload.password is not None:
-        target.password_hash = hash_password(payload.password)
-    if payload.is_active is not None:
-        target.is_active = payload.is_active
-    if payload.zone_id is not None and target.role == UserRole.STAFF:
+        target.username = new_username or None
+    if "password" in data and data["password"]:
+        target.password_hash = hash_password(data["password"])
+    if "is_active" in data and data["is_active"] is not None:
+        target.is_active = data["is_active"]
+    if "max_devices" in data and data["max_devices"] is not None:
+        target.max_devices = data["max_devices"]
+    if "zone_id" in data and target.role == UserRole.STAFF:
+        new_zone_id = data["zone_id"]  # None -> switch to all-zone (tabbed) access
         link = db.query(UserBrand).filter(UserBrand.user_id == target.id).first()
         if link is not None:
-            zone = db.query(Zone).filter(Zone.id == payload.zone_id, Zone.brand_id == link.brand_id).first()
-            if zone is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found in that staff member's brand")
-            link.zone_id = payload.zone_id
+            if new_zone_id is not None:
+                zone = db.query(Zone).filter(Zone.id == new_zone_id, Zone.brand_id == link.brand_id).first()
+                if zone is None:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found in that staff member's brand")
+            link.zone_id = new_zone_id
 
     db.commit()
     db.refresh(target)

@@ -69,8 +69,17 @@ async def create_order(payload: OrderCreate, scope: dict = Depends(require_staff
     New orders always start as "pending".
     """
     brand_id = scope["brand_id"]
-    zone_id = scope["zone_id"]
+    locked_zone_id = scope["zone_id"]
     user = scope["user"]
+
+    if locked_zone_id is not None:
+        zone_id = locked_zone_id
+    else:
+        if payload.zone_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="zone_id is required for this staff account")
+        if db.query(Zone).filter(Zone.id == payload.zone_id, Zone.brand_id == brand_id).first() is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Zone not found in your brand")
+        zone_id = payload.zone_id
 
     if not payload.items:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order must include at least one item")

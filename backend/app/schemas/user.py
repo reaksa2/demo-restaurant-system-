@@ -17,10 +17,15 @@ class UserCreate(BaseModel):
     # Scope assignment — required depending on role, validated in the endpoint:
     #   LEVEL2 -> group_id
     #   LEVEL3 -> brand_id
-    #   STAFF  -> brand_id + zone_id
+    #   STAFF  -> brand_id, and optionally zone_id (leave unset/null for a
+    #             staff account that can browse every zone in the brand via
+    #             tabs; set it to lock the account to a single zone)
     group_id: Optional[uuid.UUID] = None
     brand_id: Optional[uuid.UUID] = None
     zone_id: Optional[uuid.UUID] = None
+
+    # How many devices this account may be logged into at once.
+    max_devices: int = Field(default=1, ge=1, le=20)
 
 
 class UserUpdate(BaseModel):
@@ -28,7 +33,14 @@ class UserUpdate(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = Field(default=None, min_length=8)
     is_active: Optional[bool] = None
-    zone_id: Optional[uuid.UUID] = None  # allow re-assigning a staff member's zone
+    max_devices: Optional[int] = Field(default=None, ge=1, le=20)
+    # Re-assign a staff member's zone access. Only meaningful for STAFF.
+    # Sent as null to switch the account to "all zones" (tabs); sent as a
+    # zone id to lock it to just that zone. Omit the field entirely to leave
+    # the current zone access unchanged (see UsersPage.jsx / users.py, which
+    # always include this key explicitly for staff so null is distinguishable
+    # from "not provided").
+    zone_id: Optional[uuid.UUID] = None
 
 
 class UserOut(BaseModel):
@@ -42,6 +54,7 @@ class UserOut(BaseModel):
     group_id: Optional[uuid.UUID] = None
     brand_id: Optional[uuid.UUID] = None
     zone_id: Optional[uuid.UUID] = None
+    max_devices: int
     created_at: datetime
 
     class Config:

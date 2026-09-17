@@ -6,6 +6,7 @@ from app.core.security import decode_access_token
 from app.core.permissions import get_user_group_id, get_user_brand_link
 from app.db.database import get_db
 from app.db.models.user import User, UserRole
+from app.db.models.session import UserSession
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
@@ -18,7 +19,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     session_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="This account was signed in on another device. Please log in again.",
+        detail="This device was signed out because the account reached its device limit. Please log in again.",
         headers={"WWW-Authenticate": "Bearer"},
     )
     payload = decode_access_token(token)
@@ -34,10 +35,16 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None or not user.is_active:
         raise credentials_exception
 
-    # Single-device login: a newer login (on any device) overwrites
-    # active_session_id, so an older token's sid stops matching and that
-    # device is signed out the next time it makes a request.
-    if user.active_session_id != token_session_id:
+    # Configurable multi-device login: the token's session id must still have
+    # a matching row. A row is removed either by /api/auth/logout for that
+    # one device, or automatically at a later login once this user is over
+    # their configured max_devices (oldest session evicted first).
+    session = (
+        db.query(UserSession)
+        .filter(UserSession.user_id == user.id, UserSession.session_id == token_session_id)
+        .first()
+    )
+    if session is None:
         raise session_exception
 
     return user
@@ -64,11 +71,16 @@ def get_current_user_scope(user: User = Depends(get_current_user), db: Session =
 
 
 def require_staff(scope: dict = Depends(get_current_user_scope)) -> dict:
+    """
+    brand_id is always required. zone_id may legitimately be None here —
+    that means this staff account is not locked to one zone and can browse
+    every zone in its brand via tabs (see app/api/public_menu.py).
+    """
     if scope["user"].role != UserRole.STAFF:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff account required")
-    if scope["brand_id"] is None or scope["zone_id"] is None:
+    if scope["brand_id"] is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This staff account has no brand/zone assigned yet. Contact your manager.",
+            detail="This staff account has no brand assigned yet. Contact your manager.",
         )
     return scope

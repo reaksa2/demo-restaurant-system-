@@ -18,6 +18,8 @@ export default function StaffMenuPage() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const [menu, setMenu] = useState(null);
+  const [activeZoneId, setActiveZoneId] = useState(null);
+  const [zoneSwitching, setZoneSwitching] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
   const [error, setError] = useState("");
   const [cart, setCart] = useState({}); // food_id -> quantity
@@ -26,13 +28,39 @@ export default function StaffMenuPage() {
   useEffect(() => {
     menuApi
       .get()
-      .then(setMenu)
+      .then((m) => {
+        setMenu(m);
+        setActiveZoneId(m.active_zone_id);
+      })
       .catch(() =>
         setError(
           "Could not load the menu. Ask a manager to check your zone assignment.",
         ),
       );
   }, []);
+
+  // Zones this staff account can browse via tabs. Empty for a staff account
+  // locked to a single zone — that account never sees a zone-tab bar at all.
+  const zoneTabs = menu?.zones || [];
+
+  const switchZone = (zoneId) => {
+    if (zoneId === activeZoneId || zoneSwitching) return;
+    setZoneSwitching(true);
+    // Each zone tab is its own fetch, resolved to exactly that one zone's
+    // prices server-side — the app never holds more than one zone's prices
+    // in memory at a time. Cart is cleared on switch since it was priced
+    // against the zone being left.
+    menuApi
+      .get(zoneId)
+      .then((m) => {
+        setMenu(m);
+        setActiveZoneId(m.active_zone_id);
+        setCart({});
+        setError("");
+      })
+      .catch(() => setError("Could not load that zone's menu. Please try again."))
+      .finally(() => setZoneSwitching(false));
+  };
 
   const topCategories = useMemo(
     () => (menu ? menu.categories.filter((c) => !c.parent_id) : []),
@@ -148,6 +176,26 @@ export default function StaffMenuPage() {
           </div>
         </div>
 
+        {zoneTabs.length > 0 && (
+          <div className="mx-auto flex max-w-5xl gap-2 overflow-x-auto px-6 pb-3 pt-1">
+            {zoneTabs.map((z) => (
+              <button
+                key={z.id}
+                onClick={() => switchZone(z.id)}
+                disabled={zoneSwitching}
+                className={`flex-shrink-0 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-60 ${
+                  activeZoneId === z.id
+                    ? "bg-ink text-white"
+                    : "bg-sand/60 text-slate hover:bg-sand"
+                }`}
+              >
+                <span className="font-khmer">{z.name_kh}</span>{" "}
+                <span className="opacity-70">{z.name_en}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {topCategories.length > 0 && (
           <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-6 pb-3">
             <CategoryTab
@@ -191,7 +239,7 @@ export default function StaffMenuPage() {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
                   {section.foods.map((food) => (
                     <FoodCard
                       key={food.id}
@@ -233,6 +281,7 @@ export default function StaffMenuPage() {
           foodsById={foodsById}
           cartTotal={cartTotal}
           onAdjust={adjustCart}
+          zoneId={activeZoneId}
           onCleared={() => {
             clearCart();
             setCartOpen(false);
@@ -348,6 +397,7 @@ function CartModal({
   foodsById,
   cartTotal,
   onAdjust,
+  zoneId,
   onCleared,
 }) {
   const [tableLabel, setTableLabel] = useState("");
@@ -365,6 +415,7 @@ function CartModal({
       }));
       const order = await ordersApi.create({
         table_label: tableLabel || null,
+        zone_id: zoneId || null,
         items,
       });
       setSuccess(order);

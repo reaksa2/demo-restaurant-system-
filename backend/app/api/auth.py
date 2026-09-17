@@ -4,10 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_scope, get_current_user
-from app.core.security import verify_password, create_access_token
+from app.api.deps import get_current_user_scope, get_current_user, oauth2_scheme
+from app.core.security import verify_password, create_access_token, decode_access_token
 from app.db.database import get_db
 from app.db.models.user import User
+from app.db.models.session import UserSession
 from app.schemas.auth import LoginRequest, TokenResponse, CurrentUserInfo, MyProfileUpdate
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -21,10 +22,25 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email/username or password")
 
-    # Single-device login: a fresh session id here immediately invalidates
-    # whatever device/token was previously logged in as this user.
+    # Configurable multi-device login: this device gets its own session row.
+    # If that puts the user over their configured max_devices, the
+    # oldest/least-recently-logged-in device(s) are signed out to make room —
+    # the newest login always succeeds.
     session_id = uuid.uuid4().hex
-    user.active_session_id = session_id
+    db.add(UserSession(user_id=user.id, session_id=session_id))
+    db.flush()
+
+    max_devices = max(user.max_devices or 1, 1)
+    existing_sessions = (
+        db.query(UserSession)
+        .filter(UserSession.user_id == user.id)
+        .order_by(UserSession.created_at.asc())
+        .all()
+    )
+    if len(existing_sessions) > max_devices:
+        for stale in existing_sessions[: len(existing_sessions) - max_devices]:
+            db.delete(stale)
+
     db.commit()
 
     token = create_access_token({"sub": str(user.id), "role": user.role.value, "sid": session_id})
@@ -32,10 +48,19 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Clears the active session immediately, rather than waiting for a new login to overwrite it."""
-    user.active_session_id = None
-    db.commit()
+def logout(
+    user: User = Depends(get_current_user),
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+):
+    """Signs out only THIS device, immediately — other devices this account is logged into are untouched."""
+    payload = decode_access_token(token)
+    session_id = payload.get("sid") if payload else None
+    if session_id:
+        db.query(UserSession).filter(
+            UserSession.user_id == user.id, UserSession.session_id == session_id
+        ).delete()
+        db.commit()
 
 
 @router.get("/me", response_model=CurrentUserInfo)

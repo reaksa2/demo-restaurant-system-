@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Boolean, DateTime, Enum
+from sqlalchemy import Column, String, Boolean, DateTime, Enum, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -30,11 +30,10 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    # Single-device login: holds a random ID generated at each login. The JWT
-    # issued at login embeds this same ID. Every authenticated request checks
-    # the token's ID against this column — a new login overwrites it, which
-    # silently invalidates whatever device was logged in before.
-    active_session_id = Column(String(64), nullable=True)
+    # Configurable multi-device login: how many devices this account may be
+    # logged into at the same time. Enforced at login (app/api/auth.py) by
+    # evicting the oldest UserSession row once this cap is exceeded.
+    max_devices = Column(Integer, nullable=False, default=1)
 
     # Profile picture, uploaded via /api/images/upload and set via /api/auth/me.
     avatar_url = Column(String(1000), nullable=True)
@@ -44,5 +43,12 @@ class User(Base):
     group_links = relationship("UserGroup", back_populates="user", cascade="all, delete-orphan")
 
     # LEVEL3 users: assignment to exactly one brand, zone_id is NULL.
-    # STAFF users: assignment to exactly one brand, zone_id is REQUIRED.
+    # STAFF users: assignment to exactly one brand; zone_id is set only for a
+    # staff account locked to a single zone. When zone_id is NULL, the staff
+    # account can browse every zone in its brand via tabs on the staff menu.
     brand_links = relationship("UserBrand", back_populates="user", cascade="all, delete-orphan")
+
+    # One row per currently logged-in device. Replaces the old single
+    # active_session_id column now that a user can hold several sessions
+    # at once, up to max_devices.
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")

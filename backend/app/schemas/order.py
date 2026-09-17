@@ -15,6 +15,10 @@ class OrderItemCreate(BaseModel):
 
 class OrderCreate(BaseModel):
     table_label: Optional[str] = None
+    # Required only for a staff account with all-zone access (picks which
+    # zone tab this order is for). Ignored for a staff account locked to one
+    # zone — that zone is always used instead.
+    zone_id: Optional[uuid.UUID] = None
     items: List[OrderItemCreate]
 
 

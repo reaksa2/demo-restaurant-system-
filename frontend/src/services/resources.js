@@ -68,7 +68,9 @@ export const cloneApi = {
 
 // --- Menu (staff/customer display) ---
 export const menuApi = {
-  get: () => api.get('/menu').then((r) => r.data),
+  // zoneId: pass the zone tab to view. Only matters for a staff account with
+  // all-zone access — ignored server-side for staff locked to one zone.
+  get: (zoneId) => api.get('/menu', { params: zoneId ? { zone_id: zoneId } : {} }).then((r) => r.data),
 }
 
 // --- Orders ---
