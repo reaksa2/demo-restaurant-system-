@@ -60,12 +60,12 @@ export default function BrandDetailPage() {
         <h1 className="font-khmer-display text-3xl text-ink">{brand.name_kh}</h1>
       </div>
 
-      <div className="mt-6 flex gap-1 border-b border-sand">
+      <div className="mt-6 flex gap-1 overflow-x-auto border-b border-sand">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex-shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               tab === t.key ? 'border-marigold text-ink' : 'border-transparent text-slate hover:text-ink'
             }`}
           >

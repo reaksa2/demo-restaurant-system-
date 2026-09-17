@@ -105,35 +105,40 @@ export default function FoodsTab({ brandId, categories, zones }) {
           ) : (
             <div className="mt-3 divide-y divide-sand rounded-lg border border-sand bg-white">
               {filteredFoods.map((f) => (
-                <div key={f.id} className="flex items-center gap-4 px-5 py-3">
-                  {f.image_url ? (
-                    <img src={resolveMediaUrl(f.image_url)} alt="" className="h-12 w-12 flex-shrink-0 rounded-md object-cover" />
-                  ) : (
-                    <div className="h-12 w-12 flex-shrink-0 rounded-md bg-sand" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-khmer font-medium text-ink">{f.name_kh}</p>
-                      {!f.is_available && <Badge tone="danger">Unavailable</Badge>}
-                      {categoryName(f.category_id) && <Badge>{categoryName(f.category_id)}</Badge>}
+                <div key={f.id} className="flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    {f.image_url ? (
+                      <img src={resolveMediaUrl(f.image_url)} alt="" className="h-12 w-12 flex-shrink-0 rounded-md object-cover" />
+                    ) : (
+                      <div className="h-12 w-12 flex-shrink-0 rounded-md bg-sand" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-khmer font-medium text-ink">{f.name_kh}</p>
+                        {!f.is_available && <Badge tone="danger">Unavailable</Badge>}
+                        {categoryName(f.category_id) && <Badge>{categoryName(f.category_id)}</Badge>}
+                      </div>
+                      <p className="text-sm text-slate">{f.name_en}</p>
                     </div>
-                    <p className="text-sm text-slate">{f.name_en}</p>
                   </div>
-                  <div className="flex flex-shrink-0 gap-3 text-sm">
-                    {zones.map((z) => {
-                      const p = f.prices.find((pr) => pr.zone_id === z.id)
-                      const shown = p ? (p.discount_active && p.discount_price ? p.discount_price : p.regular_price) : null
-                      return (
-                        <div key={z.id} className="text-right">
-                          <p className="text-xs text-slate">{z.name_en}</p>
-                          <p className="font-medium text-ink">{shown !== null ? `$${Number(shown).toFixed(2)}` : '—'}</p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div className="flex flex-shrink-0 gap-1">
-                    <Button variant="ghost" onClick={() => openEdit(f)}><Pencil size={14} /></Button>
-                    <Button variant="ghost" onClick={() => remove(f)}><Trash2 size={14} /></Button>
+
+                  <div className="flex items-center justify-between gap-3 sm:flex-shrink-0 sm:justify-end">
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      {zones.map((z) => {
+                        const p = f.prices.find((pr) => pr.zone_id === z.id)
+                        const shown = p ? (p.discount_active && p.discount_price ? p.discount_price : p.regular_price) : null
+                        return (
+                          <div key={z.id} className="text-right">
+                            <p className="text-xs text-slate">{z.name_en}</p>
+                            <p className="font-medium text-ink">{shown !== null ? `$${Number(shown).toFixed(2)}` : '—'}</p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="flex flex-shrink-0 gap-1">
+                      <Button variant="ghost" onClick={() => openEdit(f)}><Pencil size={14} /></Button>
+                      <Button variant="ghost" onClick={() => remove(f)}><Trash2 size={14} /></Button>
+                    </div>
                   </div>
                 </div>
               ))}

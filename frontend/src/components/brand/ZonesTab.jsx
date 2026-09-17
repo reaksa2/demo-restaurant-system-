@@ -53,7 +53,7 @@ export default function ZonesTab({ brandId, onChange }) {
           <EmptyState title="No zones yet" description="Add at least one zone before setting food prices." action={<Button onClick={openCreate}>Add a zone</Button>} />
         </div>
       ) : (
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {zones.map((z) => (
             <div key={z.id} className="flex items-center justify-between rounded-lg border border-sand bg-white px-4 py-3">
               <div>
