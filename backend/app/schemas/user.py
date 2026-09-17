@@ -55,6 +55,7 @@ class UserOut(BaseModel):
     brand_id: Optional[uuid.UUID] = None
     zone_id: Optional[uuid.UUID] = None
     max_devices: int
+    active_sessions: int = 0  # how many devices are CURRENTLY logged in, out of max_devices
     created_at: datetime
 
     class Config:

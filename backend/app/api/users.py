@@ -11,6 +11,7 @@ from app.db.models.brand import Brand
 from app.db.models.group import Group
 from app.db.models.zone import Zone
 from app.db.models.user import User, UserRole
+from app.db.models.session import UserSession
 from app.db.models.associations import UserGroup, UserBrand
 from app.schemas.user import UserCreate, UserUpdate, UserOut
 
@@ -43,6 +44,7 @@ def _to_out(db: Session, user: User) -> UserOut:
         brand_id=brand_id,
         zone_id=zone_id,
         max_devices=user.max_devices,
+        active_sessions=db.query(UserSession).filter(UserSession.user_id == user.id).count(),
         created_at=user.created_at,
     )
 

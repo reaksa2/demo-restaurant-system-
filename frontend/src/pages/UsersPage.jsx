@@ -146,7 +146,7 @@ export default function UsersPage() {
                   {u.group_id && ` · ${groupName(u.group_id) || 'group'}`}
                   {u.brand_id && ` · ${brandName(u.brand_id) || 'brand'}`}
                   {u.role === 'staff' && (u.zone_id ? ' · Locked to one zone' : ' · All zones (tabs)')}
-                  {` · Max ${u.max_devices || 1} device${(u.max_devices || 1) === 1 ? '' : 's'}`}
+                  {` · ${u.active_sessions || 0} of ${u.max_devices || 1} device${(u.max_devices || 1) === 1 ? '' : 's'} logged in`}
                 </p>
               </div>
               <div className="flex gap-1">

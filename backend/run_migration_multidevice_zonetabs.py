@@ -14,7 +14,7 @@ Run:  python run_migration_multidevice_zonetabs.py
 """
 import psycopg2
 
-DATABASE_URL = "postgresql://neondb_owner:npg_geSs76zYRvZl@ep-muddy-unit-b3b2he3d-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"  # <-- replace with your real Render/Neon connection string
+DATABASE_URL = "postgresql://menu_user:menu_password@localhost:5432/restaurant_menu"  # <-- replace with your real Render/Neon connection string
 
 STATEMENTS = [
     """
