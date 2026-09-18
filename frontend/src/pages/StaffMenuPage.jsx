@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   CheckCircle2,
   ClipboardList,
+  MapPin,
 } from "lucide-react";
 
 export default function StaffMenuPage() {
@@ -136,7 +137,7 @@ export default function StaffMenuPage() {
   const hasBackground = Boolean(menu.brand.background_image_url);
 
   return (
-    <div className="relative min-h-screen bg-paper pb-20">
+    <div className="relative min-h-screen bg-paper pb-24">
       {hasBackground && (
         <div
           className="pointer-events-none fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
@@ -146,30 +147,34 @@ export default function StaffMenuPage() {
           }}
         />
       )}
-      <header className="relative z-10 border-b border-sand bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-3">
-            {menu.brand.logo_url && (
+      <header className="sticky top-0 z-10 border-b border-sand/80 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-6 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            {menu.brand.logo_url ? (
               <img
                 src={resolveMediaUrl(menu.brand.logo_url)}
                 alt=""
-                className="h-11 w-11 rounded-md object-cover"
+                className="h-11 w-11 flex-shrink-0 rounded-full object-cover ring-1 ring-sand"
               />
+            ) : (
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-marigold-light text-sm font-semibold text-marigold-dark">
+                {menu.brand.name_en?.[0]?.toUpperCase()}
+              </div>
             )}
-            <div>
-              <h1 className="font-khmer-display text-2xl text-ink">
+            <div className="min-w-0">
+              <h1 className="truncate font-khmer-display text-xl leading-tight text-ink">
                 {menu.brand.name_kh}
               </h1>
-              <p className="text-sm text-slate">{menu.brand.name_en}</p>
+              <p className="truncate text-xs text-slate">{menu.brand.name_en}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-shrink-0 items-center gap-2">
             {orderingEnabled && (
               <button
                 onClick={() => navigate("/staff/orders")}
-                className="flex items-center gap-1.5 rounded-md border border-sand px-3 py-2 text-sm text-slate hover:bg-paper hover:text-ink"
+                className="flex items-center gap-1.5 rounded-full border border-sand px-3.5 py-2 text-sm font-medium text-slate transition-colors hover:border-ink/20 hover:bg-paper hover:text-ink"
               >
-                <ClipboardList size={16} /> Orders
+                <ClipboardList size={15} /> Orders
               </button>
             )}
             <ProfileMenu dropDirection="down" />
@@ -177,27 +182,30 @@ export default function StaffMenuPage() {
         </div>
 
         {zoneTabs.length > 0 && (
-          <div className="mx-auto flex max-w-5xl gap-2 overflow-x-auto px-6 pb-3 pt-1">
-            {zoneTabs.map((z) => (
-              <button
-                key={z.id}
-                onClick={() => switchZone(z.id)}
-                disabled={zoneSwitching}
-                className={`flex-shrink-0 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-60 ${
-                  activeZoneId === z.id
-                    ? "bg-ink text-white"
-                    : "bg-sand/60 text-slate hover:bg-sand"
-                }`}
-              >
-                <span className="font-khmer">{z.name_kh}</span>{" "}
-                <span className="opacity-70">{z.name_en}</span>
-              </button>
-            ))}
+          <div className="mx-auto max-w-5xl overflow-x-auto px-6 pb-3">
+            <div className="inline-flex gap-1 rounded-full bg-sand/50 p-1">
+              {zoneTabs.map((z) => (
+                <button
+                  key={z.id}
+                  onClick={() => switchZone(z.id)}
+                  disabled={zoneSwitching}
+                  className={`flex flex-shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-all disabled:opacity-60 ${
+                    activeZoneId === z.id
+                      ? "bg-ink text-white shadow-sm"
+                      : "text-slate hover:text-ink"
+                  }`}
+                >
+                  <MapPin size={13} className={activeZoneId === z.id ? "opacity-80" : "opacity-50"} />
+                  <span className="font-khmer">{z.name_kh}</span>
+                  <span className="opacity-70">{z.name_en}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {topCategories.length > 0 && (
-          <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-6 pb-3">
+          <div className="mx-auto flex max-w-5xl gap-1.5 overflow-x-auto px-6 pb-4">
             <CategoryTab
               active={activeCategory === "all"}
               onClick={() => setActiveCategory("all")}
@@ -217,20 +225,20 @@ export default function StaffMenuPage() {
         )}
       </header>
 
-      <main className="relative z-10 mx-auto max-w-5xl px-6 py-8">
+      <main className="relative z-[1] mx-auto max-w-5xl px-6 py-8">
         {sections.every((s) => s.foods.length === 0) ? (
           <p className="py-16 text-center text-slate">
             No foods in this category yet.
           </p>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-10">
             {sections.map((section, i) => (
               <div key={section.heading?.id || `direct-${i}`}>
                 {section.heading && (
-                  <div className="mb-5 flex items-center gap-3 border-b border-sand pb-3">
-                    <span className="h-7 w-1 flex-shrink-0 rounded-full bg-marigold" />
+                  <div className="mb-5 flex items-center gap-3">
+                    <span className="h-6 w-1 flex-shrink-0 rounded-full bg-marigold" />
                     <div>
-                      <h2 className="font-khmer-display text-3xl leading-tight text-ink">
+                      <h2 className="font-khmer-display text-2xl leading-tight text-ink">
                         {section.heading.name_kh}
                       </h2>
                       <p className="text-xs font-medium uppercase tracking-wider text-slate">
@@ -257,20 +265,25 @@ export default function StaffMenuPage() {
       </main>
 
       {orderingEnabled && cartCount > 0 && (
-        <button
-          onClick={() => setCartOpen(true)}
-          className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-center gap-3 bg-ink py-4 text-white shadow-lg"
-        >
-          <ShoppingCart size={18} />
-          <span className="font-medium">
-            {cartCount} item{cartCount === 1 ? "" : "s"}
-          </span>
-          <span className="opacity-60">·</span>
-          <span className="font-display text-lg">${cartTotal.toFixed(2)}</span>
-          <span className="ml-1 rounded-full bg-marigold px-3 py-1 text-sm font-medium">
-            Review order
-          </span>
-        </button>
+        <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4">
+          <button
+            onClick={() => setCartOpen(true)}
+            className="mx-auto flex w-full max-w-md items-center justify-between gap-3 rounded-full bg-ink px-5 py-3.5 text-white shadow-xl transition-transform active:scale-[0.98]"
+          >
+            <span className="flex items-center gap-2">
+              <ShoppingCart size={18} />
+              <span className="font-medium">
+                {cartCount} item{cartCount === 1 ? "" : "s"}
+              </span>
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="font-display text-lg">${cartTotal.toFixed(2)}</span>
+              <span className="rounded-full bg-marigold px-3 py-1.5 text-sm font-medium">
+                Review
+              </span>
+            </span>
+          </button>
+        </div>
       )}
 
       {orderingEnabled && (
@@ -296,8 +309,10 @@ function CategoryTab({ active, onClick, labelEn, labelKh }) {
   return (
     <button
       onClick={onClick}
-      className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm transition-colors ${
-        active ? "bg-ink text-white" : "bg-sand/60 text-slate hover:bg-sand"
+      className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+        active
+          ? "bg-marigold-dark text-white"
+          : "bg-white text-slate ring-1 ring-inset ring-sand hover:text-ink"
       }`}
     >
       <span className="font-khmer">{labelKh}</span>{" "}
@@ -311,15 +326,28 @@ function FoodCard({ food, quantity, onAdjust, orderingEnabled }) {
 
   return (
     <div
-      className={`overflow-hidden rounded-lg border bg-white ${quantity > 0 ? "border-marigold" : "border-sand"} ${!food.is_available ? "opacity-60" : ""}`}
+      className={`group overflow-hidden rounded-2xl border bg-white transition-shadow ${
+        quantity > 0 ? "border-marigold shadow-sm" : "border-sand/80 hover:shadow-md"
+      } ${!food.is_available ? "opacity-60" : ""}`}
     >
-      <div className="aspect-[4/3] bg-sand">
-        {food.image_url && (
+      <div className="relative aspect-[4/3] overflow-hidden bg-sand">
+        {food.image_url ? (
           <img
             src={resolveMediaUrl(food.image_url)}
             alt={food.name_en}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs text-slate/60">
+            No photo
+          </div>
+        )}
+        {!food.is_available && (
+          <div className="absolute inset-0 flex items-center justify-center bg-ink/40">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-clay">
+              Unavailable
+            </span>
+          </div>
         )}
       </div>
       <div className="p-4">
@@ -329,32 +357,34 @@ function FoodCard({ food, quantity, onAdjust, orderingEnabled }) {
         <p className="font-display text-sm text-slate">{food.name_en}</p>
 
         {(food.description_kh || food.description_en) && (
-          <div className="mt-2 space-y-0.5">
+          <div className="mt-1.5 space-y-0.5">
             {food.description_kh && (
-              <p className="font-khmer text-xs text-slate">
+              <p className="font-khmer text-xs text-slate/90">
                 {food.description_kh}
               </p>
             )}
             {food.description_en && (
-              <p className="text-xs text-slate">{food.description_en}</p>
+              <p className="text-xs text-slate/90">{food.description_en}</p>
             )}
           </div>
         )}
 
         <div className="mt-3 flex items-center justify-between">
-          {!food.is_available ? (
-            <span className="text-sm font-medium text-clay">Unavailable</span>
-          ) : food.price ? (
-            <span className="font-display text-xl text-marigold-dark">
-              ${Number(food.price.price).toFixed(2)}
+          {food.is_available && food.price ? (
+            <span className="flex items-center gap-1.5">
+              <span className="font-display text-xl text-marigold-dark">
+                ${Number(food.price.price).toFixed(2)}
+              </span>
               {food.price.is_discounted && (
-                <span className="ml-1.5 text-xs font-sans text-moss">
+                <span className="rounded-full bg-moss-light px-2 py-0.5 text-[11px] font-medium text-moss">
                   Discount
                 </span>
               )}
             </span>
-          ) : (
+          ) : food.is_available ? (
             <span className="text-sm text-slate">Price not set</span>
+          ) : (
+            <span />
           )}
 
           {orderable &&
@@ -362,7 +392,7 @@ function FoodCard({ food, quantity, onAdjust, orderingEnabled }) {
               <div className="flex items-center gap-2 rounded-full bg-paper px-1 py-1">
                 <button
                   onClick={() => onAdjust(-1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-ink shadow-sm"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-ink shadow-sm transition-transform active:scale-95"
                 >
                   <Minus size={14} />
                 </button>
@@ -371,7 +401,7 @@ function FoodCard({ food, quantity, onAdjust, orderingEnabled }) {
                 </span>
                 <button
                   onClick={() => onAdjust(1)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-marigold text-white"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-marigold text-white transition-transform active:scale-95"
                 >
                   <Plus size={14} />
                 </button>
@@ -379,7 +409,7 @@ function FoodCard({ food, quantity, onAdjust, orderingEnabled }) {
             ) : (
               <button
                 onClick={() => onAdjust(1)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-marigold text-white hover:bg-marigold-dark"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-marigold text-white transition-colors hover:bg-marigold-dark active:scale-95"
               >
                 <Plus size={16} />
               </button>
