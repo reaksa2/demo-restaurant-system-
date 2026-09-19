@@ -25,4 +25,14 @@ class UserSession(Base):
     session_id = Column(String(64), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    # Mirrors the "exp" claim baked into this device's JWT at login. Without
+    # this, a browser closed without logging out (JWT quietly expires client
+    # side) would leave its row here forever — never released, permanently
+    # occupying one of the account's max_devices slots — since nothing ever
+    # deletes a session on a timer. Login and every authenticated request
+    # both purge rows past this timestamp, so an expired device's slot is
+    # freed automatically instead of only when a cap eviction happens to
+    # push it out.
+    expires_at = Column(DateTime, nullable=False)
+
     user = relationship("User", back_populates="sessions")

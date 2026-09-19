@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -45,6 +47,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         .first()
     )
     if session is None:
+        raise session_exception
+
+    # Belt-and-suspenders alongside the JWT's own "exp" claim: if this row
+    # outlived its expiry (clock skew, a long-lived request, etc.), delete
+    # it now so it stops occupying a max_devices slot instead of waiting for
+    # a future login's cap eviction to notice.
+    if session.expires_at < datetime.utcnow():
+        db.delete(session)
+        db.commit()
         raise session_exception
 
     return user

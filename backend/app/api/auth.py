@@ -1,10 +1,12 @@
 import uuid
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_scope, get_current_user, oauth2_scheme
+from app.core.config import settings
 from app.core.security import verify_password, create_access_token, decode_access_token
 from app.db.database import get_db
 from app.db.models.user import User
@@ -22,12 +24,21 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email/username or password")
 
+    # Drop any of this user's sessions whose token has already expired
+    # (e.g. a browser closed without logging out) before counting devices —
+    # otherwise a dead session neither the JWT nor the person can still use
+    # keeps occupying a max_devices slot forever, and a genuinely active
+    # device could get evicted to make room for it.
+    now = datetime.utcnow()
+    db.query(UserSession).filter(UserSession.user_id == user.id, UserSession.expires_at < now).delete()
+
     # Configurable multi-device login: this device gets its own session row.
-    # If that puts the user over their configured max_devices, the
+    # If that still puts the user over their configured max_devices, the
     # oldest/least-recently-logged-in device(s) are signed out to make room —
     # the newest login always succeeds.
     session_id = uuid.uuid4().hex
-    db.add(UserSession(user_id=user.id, session_id=session_id))
+    expires_at = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    db.add(UserSession(user_id=user.id, session_id=session_id, expires_at=expires_at))
     db.flush()
 
     max_devices = max(user.max_devices or 1, 1)

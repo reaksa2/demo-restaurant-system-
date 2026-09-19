@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -44,7 +45,15 @@ def _to_out(db: Session, user: User) -> UserOut:
         brand_id=brand_id,
         zone_id=zone_id,
         max_devices=user.max_devices,
-        active_sessions=db.query(UserSession).filter(UserSession.user_id == user.id).count(),
+        # Only count sessions whose token hasn't expired yet — a row can sit
+        # here briefly after its device's JWT expires (until the next login
+        # or authenticated request purges it), and it should not be shown as
+        # a currently logged-in device in the meantime.
+        active_sessions=(
+            db.query(UserSession)
+            .filter(UserSession.user_id == user.id, UserSession.expires_at >= datetime.utcnow())
+            .count()
+        ),
         created_at=user.created_at,
     )
 
