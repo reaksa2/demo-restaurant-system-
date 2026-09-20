@@ -317,7 +317,6 @@ export default function StaffMenuPage() {
                 onClick={() => setActiveCategory(c.id)}
                 labelEn={c.name_en}
                 labelKh={c.name_kh}
-                hasChildren={subcategoriesOf(c.id).length > 0}
               />
             ))}
           </div>
@@ -410,27 +409,17 @@ export default function StaffMenuPage() {
   );
 }
 
-function CategoryTab({ active, onClick, labelEn, labelKh, hasChildren }) {
+function CategoryTab({ active, onClick, labelEn, labelKh }) {
   return (
     <button
       onClick={onClick}
-      title={hasChildren ? "Contains subcategories" : undefined}
       className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
         active
           ? "bg-marigold-dark text-white"
           : "bg-white text-slate ring-1 ring-inset ring-sand hover:text-ink"
       }`}
     >
-      {/* A category that groups subcategories underneath it gets an
-          underline so staff can tell at a glance that tapping it opens
-          grouped sections, not just a flat food list. */}
-      <span
-        className={
-          hasChildren
-            ? `border-b-2 pb-0.5 ${active ? "border-white/70" : "border-moss"}`
-            : undefined
-        }
-      >
+      <span>
         <span className="font-khmer">{labelKh}</span>{" "}
         <span className="opacity-70">{labelEn}</span>
       </span>
