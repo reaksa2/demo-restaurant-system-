@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { menuApi, ordersApi } from "../services/resources";
 import { resolveMediaUrl } from "../services/api";
@@ -39,6 +39,95 @@ export default function StaffMenuPage() {
         ),
       );
   }, []);
+
+  // Keeps the tablet in sync with admin changes (price edits, new/removed
+  // items, availability toggles) without staff ever needing to reload the
+  // page. Two triggers: a quiet poll every 20s, and an immediate refetch the
+  // moment the tablet's screen/app comes back to the foreground (covers a
+  // tablet that was asleep or backgrounded through a change). It's a silent
+  // background refresh — no loading spinner, no error banner if one poll
+  // fails, since a temporary blip shouldn't interrupt staff mid-service.
+  //
+  // On a slow or flaky connection this needs three guards, or it makes
+  // things worse instead of better:
+  //   1. A hung request must not block forever — a per-request timeout
+  //      (via AbortController) lets a slow poll fail fast instead of
+  //      sitting open indefinitely.
+  //   2. A new poll must not fire while the previous one is still in
+  //      flight — otherwise a slow connection stacks up multiple pending
+  //      requests every 20s, competing for bandwidth with the order the
+  //      staff is actually trying to submit.
+  //   3. Responses can arrive out of order (a fast reply to a later poll
+  //      landing before a slow reply to an earlier one) — a request id
+  //      guard makes sure a late, stale response can never overwrite
+  //      fresher data that already rendered.
+  const cartOpenRef = useRef(cartOpen);
+  useEffect(() => {
+    cartOpenRef.current = cartOpen;
+  }, [cartOpen]);
+
+  const hasMenu = menu !== null;
+  useEffect(() => {
+    if (!hasMenu) return;
+
+    let inFlight = false;
+    let latestRequestId = 0;
+    const POLL_TIMEOUT_MS = 10000;
+
+    const refreshMenu = () => {
+      // Don't swap the food data out from under someone mid-checkout, and
+      // don't pile a new request on top of one that hasn't come back yet.
+      if (cartOpenRef.current || inFlight) return;
+
+      const requestId = ++latestRequestId;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), POLL_TIMEOUT_MS);
+      inFlight = true;
+
+      menuApi
+        .get(activeZoneId || undefined, { signal: controller.signal })
+        .then((m) => {
+          // A slower, older request that finally resolved after a newer
+          // one already landed — discard it rather than roll the UI back.
+          if (requestId !== latestRequestId) return;
+          setMenu(m);
+          // If admin deleted an item that's sitting in someone's cart,
+          // drop it rather than let a stale line item reach checkout.
+          setCart((prev) => {
+            const validIds = new Set(m.foods.map((f) => f.id));
+            let changed = false;
+            const next = {};
+            for (const [id, qty] of Object.entries(prev)) {
+              if (validIds.has(id)) next[id] = qty;
+              else changed = true;
+            }
+            return changed ? next : prev;
+          });
+        })
+        .catch(() => {
+          // Silent — this is a background refresh, not a user-initiated
+          // load. A timeout or dropped connection just means we try again
+          // on the next tick with whatever data is already on screen.
+        })
+        .finally(() => {
+          clearTimeout(timeoutId);
+          inFlight = false;
+        });
+    };
+
+    const interval = setInterval(refreshMenu, 20000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshMenu();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", refreshMenu);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", refreshMenu);
+    };
+  }, [hasMenu, activeZoneId]);
 
   // Zones this staff account can browse via tabs. Empty for a staff account
   // locked to a single zone — that account never sees a zone-tab bar at all.
@@ -219,6 +308,7 @@ export default function StaffMenuPage() {
                 onClick={() => setActiveCategory(c.id)}
                 labelEn={c.name_en}
                 labelKh={c.name_kh}
+                hasChildren={subcategoriesOf(c.id).length > 0}
               />
             ))}
           </div>
@@ -305,18 +395,30 @@ export default function StaffMenuPage() {
   );
 }
 
-function CategoryTab({ active, onClick, labelEn, labelKh }) {
+function CategoryTab({ active, onClick, labelEn, labelKh, hasChildren }) {
   return (
     <button
       onClick={onClick}
+      title={hasChildren ? "Contains subcategories" : undefined}
       className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
         active
           ? "bg-marigold-dark text-white"
           : "bg-white text-slate ring-1 ring-inset ring-sand hover:text-ink"
       }`}
     >
-      <span className="font-khmer">{labelKh}</span>{" "}
-      <span className="opacity-70">{labelEn}</span>
+      {/* A category that groups subcategories underneath it gets an
+          underline so staff can tell at a glance that tapping it opens
+          grouped sections, not just a flat food list. */}
+      <span
+        className={
+          hasChildren
+            ? `border-b-2 pb-0.5 ${active ? "border-white/70" : "border-moss"}`
+            : undefined
+        }
+      >
+        <span className="font-khmer">{labelKh}</span>{" "}
+        <span className="opacity-70">{labelEn}</span>
+      </span>
     </button>
   );
 }

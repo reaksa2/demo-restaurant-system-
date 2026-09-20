@@ -27,7 +27,7 @@ or request from that account.
 import os
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = "postgresql://neondb_owner:npg_geSs76zYRvZl@ep-muddy-unit-b3b2he3d-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL = "postgresql://menu_user:menu_password@localhost:5432/restaurant_menu"  # <-- replace for production
 
 # Must match ACCESS_TOKEN_EXPIRE_MINUTES in app/core/config.py (default 480).
 TOKEN_LIFETIME_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))

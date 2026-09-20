@@ -70,7 +70,11 @@ export const cloneApi = {
 export const menuApi = {
   // zoneId: pass the zone tab to view. Only matters for a staff account with
   // all-zone access — ignored server-side for staff locked to one zone.
-  get: (zoneId) => api.get('/menu', { params: zoneId ? { zone_id: zoneId } : {} }).then((r) => r.data),
+  // extraConfig: passthrough for axios options (e.g. `signal` for an
+  // AbortController) — used by the staff menu's background poll so a slow
+  // connection can time it out instead of leaving it hanging indefinitely.
+  get: (zoneId, extraConfig = {}) =>
+    api.get('/menu', { params: zoneId ? { zone_id: zoneId } : {}, ...extraConfig }).then((r) => r.data),
 }
 
 // --- Orders ---
