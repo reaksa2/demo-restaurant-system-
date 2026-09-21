@@ -8,6 +8,7 @@ from app.db.models.food import Food
 from app.db.models.food_price import FoodPrice
 from app.db.models.associations import UserGroup, UserBrand
 from app.db.models.order import Order, OrderItem
+from app.db.models.bill import Bill, BillItem, BillOrder, BillStatus, PaymentMethod
 
 __all__ = [
     "User",
@@ -23,4 +24,9 @@ __all__ = [
     "UserBrand",
     "Order",
     "OrderItem",
+    "Bill",
+    "BillItem",
+    "BillOrder",
+    "BillStatus",
+    "PaymentMethod",
 ]

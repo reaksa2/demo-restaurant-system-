@@ -35,10 +35,12 @@ class BrandUpdate(BaseModel):
 class BrandAdminUpdate(BrandUpdate):
     """Level 1 only: also allows moving a brand between groups, changing its slug,
     or toggling whether staff can take orders through the app at all (vs. a
-    read-only menu display with orders taken manually on paper)."""
+    read-only menu display with orders taken manually on paper), and whether
+    this brand's billing/invoice module is turned on."""
     group_id: Optional[uuid.UUID] = None
     slug: Optional[str] = None
     ordering_enabled: Optional[bool] = None
+    billing_enabled: Optional[bool] = None
 
 
 class BrandOut(BaseModel):
@@ -55,6 +57,7 @@ class BrandOut(BaseModel):
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     ordering_enabled: bool
+    billing_enabled: bool
     created_at: datetime
 
     class Config:

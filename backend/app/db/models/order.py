@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Numeric, Enum
+from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Numeric, Enum, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -41,6 +41,12 @@ class Order(Base):
     # Whether the Telegram notification actually went out — useful for staff/
     # admin to notice a misconfigured bot without the order itself failing.
     telegram_notified = Column(String(20), default="not_configured", nullable=False)  # not_configured | sent | failed
+
+    # Set once this order has been folded into a Bill (billing module). An
+    # order can be billed regardless of its own status, but in practice staff
+    # bill out completed orders for a table. Prevents double-billing the same
+    # order into two separate bills.
+    billed = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

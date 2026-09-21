@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.api import auth, groups, brands, zones, categories, foods, prices, users, clone, public_menu, images, orders
+from app.api import auth, groups, brands, zones, categories, foods, prices, users, clone, public_menu, images, orders, bills
 
 app = FastAPI(
     title="Restaurant Multi-Brand Menu System API",
@@ -37,6 +37,7 @@ app.include_router(clone.router)
 app.include_router(public_menu.router)
 app.include_router(images.router)
 app.include_router(orders.router)
+app.include_router(bills.router)
 
 
 @app.get("/api/health")

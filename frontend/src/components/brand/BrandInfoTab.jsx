@@ -7,6 +7,7 @@ import {
   Upload,
   Send,
   ClipboardList,
+  Receipt,
   Image as ImageIcon,
   X,
 } from "lucide-react";
@@ -26,6 +27,7 @@ export default function BrandInfoTab({ brand, onUpdated }) {
     telegram_bot_token: brand.telegram_bot_token || "",
     telegram_chat_id: brand.telegram_chat_id || "",
     ordering_enabled: brand.ordering_enabled,
+    billing_enabled: brand.billing_enabled,
   });
   const [uploading, setUploading] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
@@ -259,6 +261,28 @@ export default function BrandInfoTab({ brand, onUpdated }) {
             staff will still see prices and photos, but the cart and "Confirm
             order" button disappear, and orders will be taken down manually on
             paper instead.
+          </p>
+        </div>
+      )}
+
+      {isLevel1 && (
+        <div className="rounded-md border border-sand p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Receipt size={15} className="text-marigold-dark" />
+            <span className="text-sm font-medium text-ink">Billing & invoices</span>
+          </div>
+          <Checkbox
+            label="Allow staff to generate bills and invoices"
+            checked={form.billing_enabled}
+            onChange={(e) =>
+              setForm({ ...form, billing_enabled: e.target.checked })
+            }
+          />
+          <p className="mt-2 text-xs text-slate">
+            Turn this on for a full-service restaurant: staff can fold a
+            table's completed orders into a bill, apply a discount or tax,
+            print an invoice, and mark it paid. Leave off for a brand that
+            only needs the digital menu (with or without ordering).
           </p>
         </div>
       )}

@@ -44,6 +44,7 @@ def _to_out(order: Order) -> OrderOut:
         total_amount=order.total_amount,
         status=order.status,
         telegram_notified=order.telegram_notified,
+        billed=order.billed,
         created_at=order.created_at,
         items=[
             OrderItemOut(

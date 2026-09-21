@@ -46,5 +46,6 @@ class OrderOut(BaseModel):
     total_amount: Decimal
     status: OrderStatus
     telegram_notified: str  # not_configured | sent | failed
+    billed: bool = False
     created_at: datetime
     items: List[OrderItemOut]

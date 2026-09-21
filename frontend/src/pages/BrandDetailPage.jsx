@@ -6,12 +6,14 @@ import ZonesTab from '../components/brand/ZonesTab'
 import CategoriesTab from '../components/brand/CategoriesTab'
 import FoodsTab from '../components/brand/FoodsTab'
 import OrdersTab from '../components/brand/OrdersTab'
+import BillingTab from '../components/brand/BillingTab'
 
-const TABS = [
+const ALL_TABS = [
   { key: 'foods', label: 'Foods & Drink' },
   { key: 'categories', label: 'Categories' },
   { key: 'zones', label: 'Zones' },
   { key: 'orders', label: 'Orders' },
+  { key: 'billing', label: 'Billing', requires: 'billing_enabled' },
   { key: 'info', label: 'Brand info' },
 ]
 
@@ -53,6 +55,10 @@ export default function BrandDetailPage() {
 
   if (!brand) return <p className="text-sm text-slate">Loading…</p>
 
+  // Hide tabs for modules this brand doesn't have turned on (e.g. Billing),
+  // same pattern the menu display already uses for ordering_enabled.
+  const TABS = ALL_TABS.filter((t) => !t.requires || brand[t.requires])
+
   return (
     <div>
       <div>
@@ -80,6 +86,7 @@ export default function BrandDetailPage() {
         {tab === 'categories' && <CategoriesTab brandId={brandId} onChange={loadCategories} />}
         {tab === 'foods' && <FoodsTab brandId={brandId} categories={categories} zones={zones} />}
         {tab === 'orders' && <OrdersTab brandId={brandId} />}
+        {tab === 'billing' && brand.billing_enabled && <BillingTab brandId={brandId} />}
       </div>
     </div>
   )

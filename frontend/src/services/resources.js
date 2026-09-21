@@ -90,6 +90,16 @@ export const ordersApi = {
     api.patch(`/brands/${brandId}/orders/${orderId}/status`, { status }).then((r) => r.data),
 }
 
+// --- Bills / Invoices ---
+export const billsApi = {
+  list: (brandId) => api.get(`/brands/${brandId}/bills`).then((r) => r.data),
+  get: (brandId, billId) => api.get(`/brands/${brandId}/bills/${billId}`).then((r) => r.data),
+  create: (brandId, payload) => api.post(`/brands/${brandId}/bills`, payload).then((r) => r.data),
+  pay: (brandId, billId, paymentMethod) =>
+    api.patch(`/brands/${brandId}/bills/${billId}/pay`, { payment_method: paymentMethod }).then((r) => r.data),
+  void: (brandId, billId) => api.patch(`/brands/${brandId}/bills/${billId}/void`).then((r) => r.data),
+}
+
 // --- Images ---
 export const imagesApi = {
   upload: (file) => {

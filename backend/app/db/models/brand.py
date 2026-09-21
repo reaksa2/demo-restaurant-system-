@@ -43,6 +43,16 @@ class Brand(Base):
     # server-side in the order-creation endpoint, not just hidden in the UI.
     ordering_enabled = Column(Boolean, default=True, nullable=False)
 
+    # Developer-only toggle, same pattern as ordering_enabled. When False,
+    # the Billing tab and its API are hidden/blocked for this brand — for
+    # restaurants that only want the digital menu (and maybe ordering) with
+    # no need to generate bills/invoices through the app.
+    billing_enabled = Column(Boolean, default=False, nullable=False)
+
+    # Simple per-brand counter for human-friendly invoice numbers (#0001,
+    # #0002, ...). Incremented each time a bill is created for this brand.
+    next_invoice_number = Column(Integer, default=1, nullable=False)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -52,3 +62,4 @@ class Brand(Base):
     foods = relationship("Food", back_populates="brand", cascade="all, delete-orphan")
     user_links = relationship("UserBrand", back_populates="brand", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="brand", cascade="all, delete-orphan")
+    bills = relationship("Bill", back_populates="brand", cascade="all, delete-orphan")
