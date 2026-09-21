@@ -205,7 +205,12 @@ def pay_bill(
     db: Session = Depends(get_db),
 ):
     _assert_bill_access(db, scope, brand_id)
-    bill = _load_bill(db, bill_id, brand_id)
+    bill = (
+        db.query(Bill)
+        .options(joinedload(Bill.items), joinedload(Bill.zone), joinedload(Bill.created_by), joinedload(Bill.orders))
+        .filter(Bill.id == bill_id, Bill.brand_id == brand_id)
+        .first()
+    )
     if bill is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bill not found")
     if bill.status != BillStatus.UNPAID:
@@ -214,8 +219,19 @@ def pay_bill(
     bill.status = BillStatus.PAID
     bill.payment_method = payload.payment_method
     bill.paid_at = datetime.utcnow()
+
+    # Paying the bill closes out the table: the underlying orders move to
+    # "completed" automatically, same as if staff had marked them done from
+    # the Orders tab — so a paid bill never leaves an order sitting as
+    # "pending" in the kitchen/orders view.
+    for bo in bill.orders:
+        order = db.query(Order).filter(Order.id == bo.order_id).first()
+        if order is not None and order.status != "cancelled":
+            order.status = "completed"
+
     db.commit()
     db.refresh(bill)
+    bill = _load_bill(db, bill.id, brand_id)
     return _to_out(bill)
 
 
