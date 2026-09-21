@@ -21,7 +21,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     session_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="This device was signed out because the account reached its device limit. Please log in again.",
+        # This same row can disappear for several reasons - a device-limit
+        # eviction on a newer login, an admin revoking this device (or all
+        # devices) from the Users page, or the row's own expiry being
+        # cleaned up below - so the message stays generic rather than
+        # naming one specific cause.
+        detail="This device has been signed out. Please log in again.",
         headers={"WWW-Authenticate": "Bearer"},
     )
     payload = decode_access_token(token)
