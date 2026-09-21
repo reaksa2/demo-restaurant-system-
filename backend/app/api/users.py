@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_scope
@@ -15,6 +16,7 @@ from app.db.models.user import User, UserRole
 from app.db.models.session import UserSession
 from app.db.models.associations import UserGroup, UserBrand
 from app.schemas.user import UserCreate, UserUpdate, UserOut
+from app.schemas.session import UserSessionOut
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -48,12 +50,17 @@ def _to_out(db: Session, user: User) -> UserOut:
         # Only count sessions whose token hasn't expired yet — a row can sit
         # here briefly after its device's JWT expires (until the next login
         # or authenticated request purges it), and it should not be shown as
-        # a currently logged-in device in the meantime.
+        # a currently logged-in device in the meantime. A NULL expires_at
+        # (never_expire account) always counts as active.
         active_sessions=(
             db.query(UserSession)
-            .filter(UserSession.user_id == user.id, UserSession.expires_at >= datetime.utcnow())
+            .filter(
+                UserSession.user_id == user.id,
+                or_(UserSession.expires_at.is_(None), UserSession.expires_at >= datetime.utcnow()),
+            )
             .count()
         ),
+        never_expire=user.never_expire,
         created_at=user.created_at,
     )
 
@@ -163,6 +170,7 @@ def create_user(payload: UserCreate, scope: dict = Depends(get_current_user_scop
         full_name=payload.full_name,
         role=payload.role,
         max_devices=payload.max_devices,
+        never_expire=payload.never_expire,
     )
     db.add(user)
     db.flush()  # get user.id without committing yet
@@ -214,6 +222,8 @@ def update_user(
         target.is_active = data["is_active"]
     if "max_devices" in data and data["max_devices"] is not None:
         target.max_devices = data["max_devices"]
+    if "never_expire" in data and data["never_expire"] is not None:
+        target.never_expire = data["never_expire"]
     if "zone_id" in data and target.role == UserRole.STAFF:
         new_zone_id = data["zone_id"]  # None -> switch to all-zone (tabbed) access
         link = db.query(UserBrand).filter(UserBrand.user_id == target.id).first()
@@ -245,4 +255,71 @@ def delete_user(user_id: uuid.UUID, scope: dict = Depends(get_current_user_scope
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete your own account")
 
     db.delete(target)
+    db.commit()
+
+
+def _check_session_access(scope: dict, target: User, db: Session) -> None:
+    """Shared permission check for all three session-management endpoints
+    below: same visibility rule as viewing/editing the user themselves."""
+    creator = scope["user"]
+    if creator.role == UserRole.STAFF:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff cannot manage users")
+    visible_ids = {u.id for u in list_users(scope, db)}  # type: ignore[arg-type]
+    if creator.role != UserRole.LEVEL1 and target.id not in visible_ids:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this user")
+
+
+@router.get("/{user_id}/sessions", response_model=list[UserSessionOut])
+def list_user_sessions(user_id: uuid.UUID, scope: dict = Depends(get_current_user_scope), db: Session = Depends(get_db)):
+    """
+    Every device currently (or formerly, until the next cleanup) logged into
+    this account, newest first, so an admin can see who's logged in on what
+    and revoke anything that looks wrong.
+    """
+    target = db.query(User).filter(User.id == user_id).first()
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    _check_session_access(scope, target, db)
+
+    sessions = (
+        db.query(UserSession)
+        .filter(UserSession.user_id == user_id)
+        .order_by(UserSession.created_at.desc())
+        .all()
+    )
+    return sessions
+
+
+@router.delete("/{user_id}/sessions/{session_row_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_user_session(
+    user_id: uuid.UUID,
+    session_row_id: uuid.UUID,
+    scope: dict = Depends(get_current_user_scope),
+    db: Session = Depends(get_db),
+):
+    """Signs out one specific device immediately — its next request gets
+    401'd by get_current_user since the row it checks for is now gone."""
+    target = db.query(User).filter(User.id == user_id).first()
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    _check_session_access(scope, target, db)
+
+    session = db.query(UserSession).filter(UserSession.id == session_row_id, UserSession.user_id == user_id).first()
+    if session is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    db.delete(session)
+    db.commit()
+
+
+@router.delete("/{user_id}/sessions", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_all_user_sessions(user_id: uuid.UUID, scope: dict = Depends(get_current_user_scope), db: Session = Depends(get_db)):
+    """Signs this account out of every device at once (e.g. a lost/stolen
+    tablet, or just wanting a clean slate)."""
+    target = db.query(User).filter(User.id == user_id).first()
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    _check_session_access(scope, target, db)
+
+    db.query(UserSession).filter(UserSession.user_id == user_id).delete()
     db.commit()

@@ -3,7 +3,44 @@ import { useAuth } from '../stores/authStore'
 import { usersApi, groupsApi, brandsApi, zonesApi } from '../services/resources'
 import { Button, Input, Select, Badge, Checkbox, EmptyState } from '../components/ui'
 import { Modal } from '../components/Modal'
-import { Plus, Trash2, Pencil } from 'lucide-react'
+import { Plus, Trash2, Pencil, Smartphone } from 'lucide-react'
+
+// Lightweight, dependency-free read of a browser's User-Agent string into
+// something a manager can actually recognize at a glance. Not meant to be
+// exhaustive — just enough to tell devices apart on the sessions list.
+function describeDevice(userAgent) {
+  if (!userAgent) return 'Unknown device'
+  const ua = userAgent
+  let os = 'Unknown OS'
+  if (/iPad/.test(ua)) os = 'iPad'
+  else if (/iPhone/.test(ua)) os = 'iPhone'
+  else if (/Android/.test(ua)) os = 'Android'
+  else if (/Windows/.test(ua)) os = 'Windows'
+  else if (/Mac OS X/.test(ua)) os = 'Mac'
+  else if (/Linux/.test(ua)) os = 'Linux'
+
+  let browser = 'Unknown browser'
+  if (/Edg\//.test(ua)) browser = 'Edge'
+  else if (/OPR\//.test(ua)) browser = 'Opera'
+  else if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) browser = 'Chrome'
+  else if (/CriOS\//.test(ua)) browser = 'Chrome'
+  else if (/Firefox\//.test(ua)) browser = 'Firefox'
+  else if (/Safari\//.test(ua)) browser = 'Safari'
+
+  return `${browser} on ${os}`
+}
+
+function timeAgo(iso) {
+  if (!iso) return 'never'
+  const diffMs = Date.now() - new Date(iso + (iso.endsWith('Z') ? '' : 'Z')).getTime()
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
 
 const ROLE_LABELS = { level1: 'Developer', level2: 'Group Manager', level3: 'Brand Manager', staff: 'Staff' }
 const ROLE_TONES = { level1: 'accent', level2: 'accent', level3: 'default', staff: 'success' }
@@ -25,12 +62,19 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [createError, setCreateError] = useState('')
   const creatableRoles = CREATABLE_ROLES[user.role] || []
-  const [createForm, setCreateForm] = useState({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '', max_devices: '1' })
+  const [createForm, setCreateForm] = useState({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '', max_devices: '1', never_expire: false })
 
   const [editingUser, setEditingUser] = useState(null)
-  const [editForm, setEditForm] = useState({ full_name: '', username: '', password: '', is_active: true, zone_id: '', max_devices: '1' })
+  const [editForm, setEditForm] = useState({ full_name: '', username: '', password: '', is_active: true, zone_id: '', max_devices: '1', never_expire: false })
   const [editZones, setEditZones] = useState([])
   const [editError, setEditError] = useState('')
+
+  // Device management modal: which devices an account is currently logged
+  // into, with a "sign out" action per device (or all at once).
+  const [sessionsUser, setSessionsUser] = useState(null)
+  const [sessions, setSessions] = useState([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [sessionsError, setSessionsError] = useState('')
 
   const load = async () => {
     const [u, b] = await Promise.all([usersApi.list(), brandsApi.list()])
@@ -50,7 +94,7 @@ export default function UsersPage() {
   }, [createForm.role, createForm.brand_id])
 
   const openCreate = () => {
-    setCreateForm({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '', max_devices: '1' })
+    setCreateForm({ email: '', username: '', password: '', full_name: '', role: creatableRoles[0] || '', group_id: '', brand_id: '', zone_id: '', max_devices: '1', never_expire: false })
     setCreateError('')
     setCreateOpen(true)
   }
@@ -59,7 +103,7 @@ export default function UsersPage() {
     e.preventDefault()
     setCreateError('')
     try {
-      const payload = { email: createForm.email, password: createForm.password, full_name: createForm.full_name, role: createForm.role, max_devices: Number(createForm.max_devices) || 1 }
+      const payload = { email: createForm.email, password: createForm.password, full_name: createForm.full_name, role: createForm.role, max_devices: Number(createForm.max_devices) || 1, never_expire: createForm.never_expire }
       if (createForm.username.trim()) payload.username = createForm.username.trim()
       if (createForm.role === 'level2') payload.group_id = createForm.group_id
       if (createForm.role === 'level3') payload.brand_id = createForm.brand_id
@@ -78,7 +122,7 @@ export default function UsersPage() {
 
   const openEdit = async (u) => {
     setEditingUser(u)
-    setEditForm({ full_name: u.full_name, username: u.username || '', password: '', is_active: u.is_active, zone_id: u.zone_id || '', max_devices: String(u.max_devices || 1) })
+    setEditForm({ full_name: u.full_name, username: u.username || '', password: '', is_active: u.is_active, zone_id: u.zone_id || '', max_devices: String(u.max_devices || 1), never_expire: !!u.never_expire })
     setEditError('')
     if (u.role === 'staff' && u.brand_id) {
       setEditZones(await zonesApi.list(u.brand_id))
@@ -91,7 +135,7 @@ export default function UsersPage() {
     e.preventDefault()
     setEditError('')
     try {
-      const payload = { full_name: editForm.full_name, username: editForm.username.trim() || null, is_active: editForm.is_active, max_devices: Number(editForm.max_devices) || 1 }
+      const payload = { full_name: editForm.full_name, username: editForm.username.trim() || null, is_active: editForm.is_active, max_devices: Number(editForm.max_devices) || 1, never_expire: editForm.never_expire }
       if (editForm.password) payload.password = editForm.password
       // Always send zone_id for staff (even blank/null) so the backend can
       // tell "switch to all zones" apart from "leave zone access as-is".
@@ -107,6 +151,32 @@ export default function UsersPage() {
   const remove = async (u) => {
     if (!confirm(`Delete user "${u.full_name}"?`)) return
     await usersApi.remove(u.id)
+    load()
+  }
+
+  const openSessions = async (u) => {
+    setSessionsUser(u)
+    setSessionsError('')
+    setSessionsLoading(true)
+    try {
+      setSessions(await usersApi.sessions(u.id))
+    } catch (err) {
+      setSessionsError(err.response?.data?.detail || 'Could not load devices.')
+    } finally {
+      setSessionsLoading(false)
+    }
+  }
+
+  const revokeOne = async (sessionRowId) => {
+    await usersApi.revokeSession(sessionsUser.id, sessionRowId)
+    setSessions((prev) => prev.filter((s) => s.id !== sessionRowId))
+    load() // refresh the "X of Y devices" count on the list behind the modal
+  }
+
+  const revokeAll = async () => {
+    if (!confirm(`Sign "${sessionsUser.full_name}" out of every device?`)) return
+    await usersApi.revokeAllSessions(sessionsUser.id)
+    setSessions([])
     load()
   }
 
@@ -146,10 +216,17 @@ export default function UsersPage() {
                   {u.group_id && ` · ${groupName(u.group_id) || 'group'}`}
                   {u.brand_id && ` · ${brandName(u.brand_id) || 'brand'}`}
                   {u.role === 'staff' && (u.zone_id ? ' · Locked to one zone' : ' · All zones (tabs)')}
-                  {` · ${u.active_sessions || 0} of ${u.max_devices || 1} device${(u.max_devices || 1) === 1 ? '' : 's'} logged in`}
+                  {u.never_expire
+                    ? ` · ${u.active_sessions || 0} device${(u.active_sessions || 0) === 1 ? '' : 's'} logged in (never expires)`
+                    : ` · ${u.active_sessions || 0} of ${u.max_devices || 1} device${(u.max_devices || 1) === 1 ? '' : 's'} logged in`}
                 </p>
               </div>
               <div className="flex gap-1">
+                {canEditUsers && (
+                  <Button variant="ghost" onClick={() => openSessions(u)} title="See and manage logged-in devices">
+                    <Smartphone size={15} />
+                  </Button>
+                )}
                 {canEditUsers && <Button variant="ghost" onClick={() => openEdit(u)}><Pencil size={15} /></Button>}
                 <Button variant="ghost" onClick={() => remove(u)}><Trash2 size={15} /></Button>
               </div>
@@ -202,6 +279,12 @@ export default function UsersPage() {
             />
           )}
 
+          <Checkbox
+            label="Never expire login sessions (stays signed in until someone revokes the device)"
+            checked={createForm.never_expire}
+            onChange={(e) => setCreateForm({ ...createForm, never_expire: e.target.checked })}
+          />
+
           {createError && <p className="text-sm text-clay">{createError}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>Cancel</Button>
@@ -244,12 +327,63 @@ export default function UsersPage() {
               checked={editForm.is_active}
               onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
             />
+            <Checkbox
+              label="Never expire login sessions (stays signed in until someone revokes the device)"
+              checked={editForm.never_expire}
+              onChange={(e) => setEditForm({ ...editForm, never_expire: e.target.checked })}
+            />
+            {editForm.never_expire !== !!editingUser.never_expire && (
+              <p className="text-xs text-slate">
+                {editForm.never_expire
+                  ? 'Only NEW logins from now on get a never-expiring session — any device already signed in keeps its current expiry.'
+                  : "Devices already signed in with a never-expiring session stay that way until they're revoked below or log out — only new logins pick up the normal expiry."}
+              </p>
+            )}
             {editError && <p className="text-sm text-clay">{editError}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="secondary" onClick={() => setEditingUser(null)}>Cancel</Button>
               <Button type="submit">Save changes</Button>
             </div>
           </form>
+        )}
+      </Modal>
+
+      <Modal
+        open={!!sessionsUser}
+        onClose={() => setSessionsUser(null)}
+        title={sessionsUser ? `Devices — ${sessionsUser.full_name}` : 'Devices'}
+        width="max-w-lg"
+      >
+        {sessionsLoading ? (
+          <p className="text-sm text-slate">Loading…</p>
+        ) : sessionsError ? (
+          <p className="text-sm text-clay">{sessionsError}</p>
+        ) : sessions.length === 0 ? (
+          <p className="text-sm text-slate">Not logged into any device right now.</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              {sessions.map((s) => (
+                <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-sand px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-ink">{describeDevice(s.user_agent)}</p>
+                      {!s.expires_at && <Badge tone="accent">Never expires</Badge>}
+                    </div>
+                    <p className="text-xs text-slate">
+                      {s.ip_address || 'Unknown IP'} · Signed in {timeAgo(s.created_at)} · Last active {timeAgo(s.last_seen_at || s.created_at)}
+                    </p>
+                  </div>
+                  <Button variant="ghost" onClick={() => revokeOne(s.id)}>
+                    <Trash2 size={15} /> Sign out
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end border-t border-sand pt-3">
+              <Button variant="secondary" onClick={revokeAll}>Sign out of all devices</Button>
+            </div>
+          </div>
         )}
       </Modal>
     </div>

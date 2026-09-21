@@ -35,6 +35,13 @@ class User(Base):
     # evicting the oldest UserSession row once this cap is exceeded.
     max_devices = Column(Integer, nullable=False, default=1)
 
+    # When true, this account's login sessions never time out on their own
+    # (both the JWT's own expiry and its UserSession row are set far in the
+    # future at login — see app/api/auth.py). They still end immediately if
+    # an admin revokes that device (DELETE /api/users/{id}/sessions/{id}) or
+    # the account gets logged out normally.
+    never_expire = Column(Boolean, nullable=False, default=False)
+
     # Profile picture, uploaded via /api/images/upload and set via /api/auth/me.
     avatar_url = Column(String(1000), nullable=True)
 

@@ -58,6 +58,11 @@ export const usersApi = {
   create: (payload) => api.post('/users', payload).then((r) => r.data),
   update: (id, payload) => api.put(`/users/${id}`, payload).then((r) => r.data),
   remove: (id) => api.delete(`/users/${id}`),
+  // Device management: see every device an account is logged into, and
+  // sign one (or all) of them out from here without the person's help.
+  sessions: (id) => api.get(`/users/${id}/sessions`).then((r) => r.data),
+  revokeSession: (id, sessionRowId) => api.delete(`/users/${id}/sessions/${sessionRowId}`),
+  revokeAllSessions: (id) => api.delete(`/users/${id}/sessions`),
 }
 
 // --- Clone ---

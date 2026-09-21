@@ -33,6 +33,21 @@ class UserSession(Base):
     # both purge rows past this timestamp, so an expired device's slot is
     # freed automatically instead of only when a cap eviction happens to
     # push it out.
-    expires_at = Column(DateTime, nullable=False)
+    #
+    # NULL means this device's session never expires (the account has
+    # never_expire set on User) — such rows are always treated as active and
+    # are never picked up by the expiry-purge queries.
+    expires_at = Column(DateTime, nullable=True)
+
+    # Captured at login (app/api/auth.py) purely so an admin can tell devices
+    # apart on the Users page (e.g. "Chrome on Android" vs "Safari on iPad")
+    # and decide which one to revoke. Never used for auth decisions.
+    user_agent = Column(String(500), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+
+    # Updated opportunistically (throttled, not on every single request — see
+    # app/api/deps.py) so the admin view can show roughly how recently a
+    # device was actually used, not just when it first logged in.
+    last_seen_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="sessions")

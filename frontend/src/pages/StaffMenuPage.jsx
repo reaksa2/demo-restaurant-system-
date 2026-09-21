@@ -148,9 +148,7 @@ export default function StaffMenuPage() {
         setCart({});
         setError("");
       })
-      .catch(() =>
-        setError("Could not load that zone's menu. Please try again."),
-      )
+      .catch(() => setError("Could not load that zone's menu. Please try again."))
       .finally(() => setZoneSwitching(false));
   };
 
@@ -256,9 +254,7 @@ export default function StaffMenuPage() {
               <h1 className="truncate font-khmer-display text-xl leading-tight text-ink">
                 {menu.brand.name_kh}
               </h1>
-              <p className="truncate text-xs text-slate">
-                {menu.brand.name_en}
-              </p>
+              <p className="truncate text-xs text-slate">{menu.brand.name_en}</p>
             </div>
           </div>
           <div className="flex flex-shrink-0 items-center gap-2">
@@ -288,12 +284,7 @@ export default function StaffMenuPage() {
                       : "text-slate hover:text-ink"
                   }`}
                 >
-                  <MapPin
-                    size={13}
-                    className={
-                      activeZoneId === z.id ? "opacity-80" : "opacity-50"
-                    }
-                  />
+                  <MapPin size={13} className={activeZoneId === z.id ? "opacity-80" : "opacity-50"} />
                   <span className="font-khmer">{z.name_kh}</span>
                   <span className="opacity-70">{z.name_en}</span>
                 </button>
@@ -379,9 +370,7 @@ export default function StaffMenuPage() {
               </span>
             </span>
             <span className="flex items-center gap-2">
-              <span className="font-display text-lg">
-                ${cartTotal.toFixed(2)}
-              </span>
+              <span className="font-display text-lg">${cartTotal.toFixed(2)}</span>
               <span className="rounded-full bg-marigold px-3 py-1.5 text-sm font-medium">
                 Review
               </span>
@@ -433,9 +422,7 @@ function FoodCard({ food, quantity, onAdjust, orderingEnabled }) {
   return (
     <div
       className={`group overflow-hidden rounded-2xl border bg-white transition-shadow ${
-        quantity > 0
-          ? "border-marigold shadow-sm"
-          : "border-sand/80 hover:shadow-md"
+        quantity > 0 ? "border-marigold shadow-sm" : "border-sand/80 hover:shadow-md"
       } ${!food.is_available ? "opacity-60" : ""}`}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-sand">

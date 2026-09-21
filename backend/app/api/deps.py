@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -49,14 +49,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if session is None:
         raise session_exception
 
+    now = datetime.utcnow()
+
     # Belt-and-suspenders alongside the JWT's own "exp" claim: if this row
     # outlived its expiry (clock skew, a long-lived request, etc.), delete
     # it now so it stops occupying a max_devices slot instead of waiting for
-    # a future login's cap eviction to notice.
-    if session.expires_at < datetime.utcnow():
+    # a future login's cap eviction to notice. expires_at is NULL for a
+    # never_expire account's session — that row is always treated as valid.
+    if session.expires_at is not None and session.expires_at < now:
         db.delete(session)
         db.commit()
         raise session_exception
+
+    # Opportunistic "last seen" tracking for the admin's device list —
+    # throttled to once every 5 minutes per session so this doesn't turn
+    # into a write on literally every request this device makes.
+    if session.last_seen_at is None or (now - session.last_seen_at) > timedelta(minutes=5):
+        session.last_seen_at = now
+        db.commit()
 
     return user
 

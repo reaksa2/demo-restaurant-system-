@@ -27,6 +27,11 @@ class UserCreate(BaseModel):
     # How many devices this account may be logged into at once.
     max_devices: int = Field(default=1, ge=1, le=20)
 
+    # When true, this account's login sessions never time out on their own
+    # (see UserSession.expires_at / app/api/auth.py). Use sparingly — it
+    # means a device stays signed in until someone explicitly revokes it.
+    never_expire: bool = False
+
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -34,6 +39,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(default=None, min_length=8)
     is_active: Optional[bool] = None
     max_devices: Optional[int] = Field(default=None, ge=1, le=20)
+    never_expire: Optional[bool] = None
     # Re-assign a staff member's zone access. Only meaningful for STAFF.
     # Sent as null to switch the account to "all zones" (tabs); sent as a
     # zone id to lock it to just that zone. Omit the field entirely to leave
@@ -56,6 +62,7 @@ class UserOut(BaseModel):
     zone_id: Optional[uuid.UUID] = None
     max_devices: int
     active_sessions: int = 0  # how many devices are CURRENTLY logged in, out of max_devices
+    never_expire: bool = False
     created_at: datetime
 
     class Config:
