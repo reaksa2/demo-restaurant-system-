@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../stores/authStore'
 import { ProfileMenu } from '../components/ProfileMenu'
-import { LayoutGrid, Building2, Users, Copy, UtensilsCrossed, Receipt, Menu, X } from 'lucide-react'
+import { LayoutGrid, Building2, Users, Copy, UtensilsCrossed, BarChart3, Menu, X } from 'lucide-react'
 
 const ROLE_LABELS = {
   level1: 'Developer',
@@ -19,7 +19,7 @@ export default function AdminLayout() {
     { to: '/admin', label: 'Dashboard', icon: LayoutGrid, end: true },
     ...(user.role === 'level1' ? [{ to: '/admin/groups', label: 'Groups', icon: Building2 }] : []),
     { to: '/admin/brands', label: 'Brands', icon: UtensilsCrossed },
-    { to: '/admin/billing', label: 'Billing', icon: Receipt },
+    { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
     { to: '/admin/users', label: 'Users', icon: Users },
     ...(user.role === 'level1' || user.role === 'level2' ? [{ to: '/admin/clone', label: 'Clone Menu', icon: Copy }] : []),
   ]

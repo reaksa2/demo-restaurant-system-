@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { brandsApi, billsApi } from '../services/resources'
-import { Badge, EmptyState, Select } from '../components/ui'
+import { brandsApi, billsApi } from '../../services/resources'
+import { Badge, EmptyState, Select } from '../../components/ui'
 import { Receipt } from 'lucide-react'
 
 const STATUS_TONES = { unpaid: 'accent', paid: 'success', void: 'danger' }
@@ -16,9 +16,10 @@ function parseUtcDate(dateString) {
  * Cross-brand view: Level1 sees every brand with billing on, Level2 sees it
  * for their group's brands, Level3 sees just their one brand (brandsApi.list
  * is already scoped server-side the same way it is everywhere else in the
- * app, so this page just renders whatever brands come back).
+ * app, so this tab just renders whatever brands come back). Read-only report
+ * — paying/voiding a bill still happens from the brand's own Billing tab.
  */
-export default function BillingOverviewPage() {
+export default function BillingReportTab() {
   const [brands, setBrands] = useState([])
   const [bills, setBills] = useState([]) // [{ ...bill, brand_id, brand_name }]
   const [brandFilter, setBrandFilter] = useState('all')
@@ -60,25 +61,16 @@ export default function BillingOverviewPage() {
 
   if (brands.length === 0) {
     return (
-      <div>
-        <h1 className="font-display text-2xl text-ink">Billing</h1>
-        <p className="mt-1 text-sm text-slate">Results across every brand with billing turned on.</p>
-        <div className="mt-6">
-          <EmptyState
-            title="No brands have billing turned on yet"
-            description="Turn on billing for a brand from its Brand info tab to start seeing invoices here."
-          />
-        </div>
-      </div>
+      <EmptyState
+        title="No brands have billing turned on yet"
+        description="Turn on billing for a brand from its Brand info tab to start seeing invoices here."
+      />
     )
   }
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-ink">Billing</h1>
-      <p className="mt-1 text-sm text-slate">Results across every brand with billing turned on.</p>
-
-      <div className="mt-6 grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="rounded-lg border border-sand bg-white p-4">
           <p className="text-xs text-slate">Bills</p>
           <p className="mt-1 font-display text-2xl text-ink">{totals.count}</p>

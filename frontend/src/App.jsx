@@ -8,7 +8,7 @@ import DashboardPage from './pages/DashboardPage'
 import GroupsPage from './pages/GroupsPage'
 import BrandsPage from './pages/BrandsPage'
 import BrandDetailPage from './pages/BrandDetailPage'
-import BillingOverviewPage from './pages/BillingOverviewPage'
+import ReportsPage from './pages/ReportsPage'
 import UsersPage from './pages/UsersPage'
 import ClonePage from './pages/ClonePage'
 import StaffMenuPage from './pages/StaffMenuPage'
@@ -53,7 +53,7 @@ export default function App() {
             <Route path="groups" element={<ProtectedRoute roles={['level1']}><GroupsPage /></ProtectedRoute>} />
             <Route path="brands" element={<BrandsPage />} />
             <Route path="brands/:brandId" element={<BrandDetailPage />} />
-            <Route path="billing" element={<BillingOverviewPage />} />
+            <Route path="reports" element={<ReportsPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="clone" element={<ProtectedRoute roles={['level1', 'level2']}><ClonePage /></ProtectedRoute>} />
           </Route>
