@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ordersApi, billsApi } from '../../services/resources'
 import { Button, Badge, Input, EmptyState } from '../ui'
 import { Modal } from '../Modal'
+import { usePolling } from '../../hooks/usePolling'
 import { Receipt, Printer, CheckCircle2, Ban } from 'lucide-react'
 
 const BILL_STATUS_TONES = { unpaid: 'accent', paid: 'success', void: 'danger' }
@@ -26,6 +27,15 @@ export default function BillingTab({ brandId }) {
     setLoading(false)
   }
   useEffect(() => { load() }, [brandId])
+
+  // Don't let a background refresh swap the checkout/invoice data out from
+  // under someone mid-checkout or mid-payment — skip the poll tick while
+  // either modal is open, same guard the staff menu uses for its cart.
+  const modalOpenRef = useRef(false)
+  useEffect(() => {
+    modalOpenRef.current = !!checkoutTable || !!viewBill
+  }, [checkoutTable, viewBill])
+  usePolling(() => (modalOpenRef.current ? Promise.resolve() : load()), 15000)
 
   // Group unbilled, non-cancelled orders by table — these are the tables
   // that still need to be checked out.

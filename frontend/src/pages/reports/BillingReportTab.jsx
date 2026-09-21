@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { brandsApi, billsApi } from '../../services/resources'
 import { Badge, EmptyState, Select } from '../../components/ui'
+import { usePolling } from '../../hooks/usePolling'
 import { Receipt } from 'lucide-react'
 
 const STATUS_TONES = { unpaid: 'accent', paid: 'success', void: 'danger' }
@@ -26,22 +27,22 @@ export default function BillingReportTab() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function load() {
-      const allBrands = await brandsApi.list()
-      const billingBrands = allBrands.filter((b) => b.billing_enabled)
-      setBrands(billingBrands)
+  const load = useCallback(async () => {
+    const allBrands = await brandsApi.list()
+    const billingBrands = allBrands.filter((b) => b.billing_enabled)
+    setBrands(billingBrands)
 
-      const perBrand = await Promise.all(
-        billingBrands.map((b) =>
-          billsApi.list(b.id).then((rows) => rows.map((r) => ({ ...r, brand_id: b.id, brand_name: b.name_en })))
-        )
+    const perBrand = await Promise.all(
+      billingBrands.map((b) =>
+        billsApi.list(b.id).then((rows) => rows.map((r) => ({ ...r, brand_id: b.id, brand_name: b.name_en })))
       )
-      setBills(perBrand.flat().sort((a, b) => parseUtcDate(b.created_at) - parseUtcDate(a.created_at)))
-      setLoading(false)
-    }
-    load()
+    )
+    setBills(perBrand.flat().sort((a, b) => parseUtcDate(b.created_at) - parseUtcDate(a.created_at)))
+    setLoading(false)
   }, [])
+
+  useEffect(() => { load() }, [load])
+  usePolling(load, 15000)
 
   const filtered = useMemo(() => {
     return bills.filter((b) => {

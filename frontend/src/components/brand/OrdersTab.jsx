@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react'
 import { ordersApi } from '../../services/resources'
 import { EmptyState } from '../ui'
 import OrdersView from '../OrdersView'
+import { usePolling } from '../../hooks/usePolling'
 
 export default function OrdersTab({ brandId }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const load = () => ordersApi.list(brandId).then((data) => { setOrders(data); setLoading(false) })
-  useEffect(() => { load() }, [brandId])
+  // silent, no setLoading — keeps the list fresh without flashing "Loading…"
+  const refresh = () => ordersApi.list(brandId).then((data) => setOrders(data))
+  const load = () => refresh().finally(() => setLoading(false))
+  useEffect(() => { setLoading(true); load() }, [brandId])
+  usePolling(refresh, 15000)
 
   const handleStatusChange = async (orderId, status) => {
     await ordersApi.updateStatus(brandId, orderId, status)

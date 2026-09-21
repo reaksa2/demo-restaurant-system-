@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { brandsApi, ordersApi } from '../../services/resources'
 import { Badge, EmptyState, Select } from '../../components/ui'
+import { usePolling } from '../../hooks/usePolling'
 import { ExternalLink } from 'lucide-react'
 
 const STATUS_TONES = { pending: 'accent', completed: 'success', cancelled: 'danger' }
@@ -24,22 +25,22 @@ export default function OrdersReportTab() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function load() {
-      const allBrands = await brandsApi.list()
-      const orderingBrands = allBrands.filter((b) => b.ordering_enabled)
-      setBrands(orderingBrands)
+  const load = useCallback(async () => {
+    const allBrands = await brandsApi.list()
+    const orderingBrands = allBrands.filter((b) => b.ordering_enabled)
+    setBrands(orderingBrands)
 
-      const perBrand = await Promise.all(
-        orderingBrands.map((b) =>
-          ordersApi.list(b.id).then((rows) => rows.map((r) => ({ ...r, brand_id: b.id, brand_name: b.name_en })))
-        )
+    const perBrand = await Promise.all(
+      orderingBrands.map((b) =>
+        ordersApi.list(b.id).then((rows) => rows.map((r) => ({ ...r, brand_id: b.id, brand_name: b.name_en })))
       )
-      setOrders(perBrand.flat().sort((a, b) => parseUtcDate(b.created_at) - parseUtcDate(a.created_at)))
-      setLoading(false)
-    }
-    load()
+    )
+    setOrders(perBrand.flat().sort((a, b) => parseUtcDate(b.created_at) - parseUtcDate(a.created_at)))
+    setLoading(false)
   }, [])
+
+  useEffect(() => { load() }, [load])
+  usePolling(load, 15000)
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {

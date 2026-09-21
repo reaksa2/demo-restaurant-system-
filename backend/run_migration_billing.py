@@ -23,7 +23,7 @@ new tables) — no existing data is touched or at risk.
 
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = "postgresql://neondb_owner:npg_geSs76zYRvZl@ep-snowy-hall-b39m3yfu-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"  # <-- replace for production
+DATABASE_URL = "postgresql://menu_user:menu_password@localhost:5432/restaurant_menu"  # <-- replace for production
 
 engine = create_engine(DATABASE_URL)
 

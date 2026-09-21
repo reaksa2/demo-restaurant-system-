@@ -5,6 +5,7 @@ import { ordersApi, brandsApi } from '../services/resources'
 import { ProfileMenu } from '../components/ProfileMenu'
 import OrdersView from '../components/OrdersView'
 import BillingTab from '../components/brand/BillingTab'
+import { usePolling } from '../hooks/usePolling'
 import { ArrowLeft } from 'lucide-react'
 
 export default function StaffOrdersPage() {
@@ -26,6 +27,11 @@ export default function StaffOrdersPage() {
       .catch(() => { setError('Could not load orders.'); setLoading(false) })
 
   useEffect(() => { load() }, [])
+
+  // Silent refresh so a new order (or a bill closing one out elsewhere)
+  // shows up without staff needing to reload the page — skipped while the
+  // Billing tab is active, since BillingTab already polls itself.
+  usePolling(() => (tab === 'orders' ? load() : Promise.resolve()), 15000)
 
   const handleStatusChange = async (orderId, status) => {
     await ordersApi.updateStatus(user.brand_id, orderId, status)
