@@ -197,6 +197,21 @@ def update_order_status(
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
+    # When billing is turned on, "completed" isn't something staff set by
+    # hand — it's the result of the table's bill being paid (see
+    # bills.pay_bill, which sets this same field). Blocking the manual
+    # transition here is what keeps "completed" meaning "paid" instead of
+    # just "someone clicked complete", which is what let orders and bills
+    # drift out of sync before (an order could show completed with no bill,
+    # or stay pending after its bill was paid via a stale client).
+    if payload.status == "completed":
+        brand = db.query(Brand).filter(Brand.id == brand_id).first()
+        if brand is not None and brand.billing_enabled:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Billing is on for this brand — orders complete automatically once their bill is paid. Check out this table from the Billing tab.",
+            )
+
     order.status = payload.status
     db.commit()
     db.refresh(order)

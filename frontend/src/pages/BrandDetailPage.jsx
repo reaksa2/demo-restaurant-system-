@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { brandsApi, categoriesApi, zonesApi } from '../services/resources'
 import BrandInfoTab from '../components/brand/BrandInfoTab'
 import ZonesTab from '../components/brand/ZonesTab'
@@ -20,10 +20,13 @@ const ALL_TABS = [
 export default function BrandDetailPage() {
   const { brandId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [brand, setBrand] = useState(null)
   const [categories, setCategories] = useState([])
   const [zones, setZones] = useState([])
-  const [tab, setTab] = useState('foods')
+  // A deep link (e.g. from the Ordering page nudging staff to check a table
+  // out) can open straight on a specific tab via navigate(..., { state }).
+  const [tab, setTab] = useState(location.state?.tab || 'foods')
   const [error, setError] = useState('')
 
   const loadCategories = async () => {
@@ -85,7 +88,13 @@ export default function BrandDetailPage() {
         {tab === 'zones' && <ZonesTab brandId={brandId} onChange={loadZones} />}
         {tab === 'categories' && <CategoriesTab brandId={brandId} onChange={loadCategories} />}
         {tab === 'foods' && <FoodsTab brandId={brandId} categories={categories} zones={zones} />}
-        {tab === 'orders' && <OrdersTab brandId={brandId} />}
+        {tab === 'orders' && (
+          <OrdersTab
+            brandId={brandId}
+            billingEnabled={brand.billing_enabled}
+            onNeedsBilling={() => setTab('billing')}
+          />
+        )}
         {tab === 'billing' && brand.billing_enabled && <BillingTab brandId={brandId} />}
       </div>
     </div>

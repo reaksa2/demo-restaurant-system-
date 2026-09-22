@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Badge } from './ui'
-import { List, Receipt, Check, X, RotateCcw } from 'lucide-react'
+import { List, Receipt, Check, X, RotateCcw, Clock } from 'lucide-react'
 
 const STATUS_TONES = { pending: 'accent', completed: 'success', cancelled: 'danger' }
 const STATUS_LABELS = { pending: 'Pending', completed: 'Completed', cancelled: 'Cancelled' }
@@ -23,7 +23,7 @@ function parseUtcDate(dateString) {
  * table for at-a-glance billing totals, with a status filter and per-order
  * status actions (mark completed / cancel / reopen).
  */
-export default function OrdersView({ orders, onStatusChange }) {
+export default function OrdersView({ orders, onStatusChange, billingEnabled, onNeedsBilling }) {
   const [view, setView] = useState('table')
   const [statusFilter, setStatusFilter] = useState('active') // active (pending) | completed | cancelled | all
 
@@ -90,24 +90,49 @@ export default function OrdersView({ orders, onStatusChange }) {
       {filtered.length === 0 ? (
         <p className="py-12 text-center text-sm text-slate">No orders in this view.</p>
       ) : view === 'table' ? (
-        <ByTableView groups={tableGroups} onStatusChange={onStatusChange} />
+        <ByTableView groups={tableGroups} onStatusChange={onStatusChange} billingEnabled={billingEnabled} onNeedsBilling={onNeedsBilling} />
       ) : (
-        <FlatView orders={filtered} onStatusChange={onStatusChange} />
+        <FlatView orders={filtered} onStatusChange={onStatusChange} billingEnabled={billingEnabled} onNeedsBilling={onNeedsBilling} />
       )}
     </div>
   )
 }
 
-function StatusActions({ order, onStatusChange }) {
+// When billing is on, "Complete" isn't a status a person sets by hand —
+// it's what happens once the table's bill gets paid (BillingTab -> pay_bill
+// auto-completes the linked orders). So instead of a Complete button that
+// the backend would just reject, an unbilled order gets a button that takes
+// staff to checkout, and an already-billed-but-unpaid one shows that it's
+// just waiting on payment rather than implying there's an action to take
+// here.
+function StatusActions({ order, onStatusChange, billingEnabled, onNeedsBilling }) {
   if (order.status === 'pending') {
     return (
       <div className="flex gap-1">
-        <button
-          onClick={() => onStatusChange(order.id, 'completed')}
-          className="flex items-center gap-1 rounded-full bg-moss px-2.5 py-1 text-xs font-medium text-white hover:bg-moss/90"
-        >
-          <Check size={12} /> Complete
-        </button>
+        {billingEnabled ? (
+          order.billed ? (
+            <button
+              onClick={onNeedsBilling}
+              className="flex items-center gap-1 rounded-full bg-paper px-2.5 py-1 text-xs font-medium text-slate ring-1 ring-inset ring-sand hover:text-ink"
+            >
+              <Clock size={12} /> Awaiting payment
+            </button>
+          ) : (
+            <button
+              onClick={onNeedsBilling}
+              className="flex items-center gap-1 rounded-full bg-moss px-2.5 py-1 text-xs font-medium text-white hover:bg-moss/90"
+            >
+              <Receipt size={12} /> Bill to complete
+            </button>
+          )
+        ) : (
+          <button
+            onClick={() => onStatusChange(order.id, 'completed')}
+            className="flex items-center gap-1 rounded-full bg-moss px-2.5 py-1 text-xs font-medium text-white hover:bg-moss/90"
+          >
+            <Check size={12} /> Complete
+          </button>
+        )}
         <button
           onClick={() => onStatusChange(order.id, 'cancelled')}
           className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-clay ring-1 ring-inset ring-clay/30 hover:bg-clay/5"
@@ -127,7 +152,7 @@ function StatusActions({ order, onStatusChange }) {
   )
 }
 
-function ByTableView({ groups, onStatusChange }) {
+function ByTableView({ groups, onStatusChange, billingEnabled, onNeedsBilling }) {
   return (
     <div className="space-y-4">
       {groups.map((group) => (
@@ -161,7 +186,7 @@ function ByTableView({ groups, onStatusChange }) {
                     ))}
                   </ul>
                   <div className="mt-2">
-                    <StatusActions order={o} onStatusChange={onStatusChange} />
+                    <StatusActions order={o} onStatusChange={onStatusChange} billingEnabled={billingEnabled} onNeedsBilling={onNeedsBilling} />
                   </div>
                 </div>
               ))}
@@ -172,7 +197,7 @@ function ByTableView({ groups, onStatusChange }) {
   )
 }
 
-function FlatView({ orders, onStatusChange }) {
+function FlatView({ orders, onStatusChange, billingEnabled, onNeedsBilling }) {
   return (
     <div className="divide-y divide-sand rounded-lg border border-sand bg-white">
       {orders.map((o) => (
@@ -198,7 +223,7 @@ function FlatView({ orders, onStatusChange }) {
             ))}
           </ul>
           <div className="mt-2">
-            <StatusActions order={o} onStatusChange={onStatusChange} />
+            <StatusActions order={o} onStatusChange={onStatusChange} billingEnabled={billingEnabled} onNeedsBilling={onNeedsBilling} />
           </div>
         </div>
       ))}

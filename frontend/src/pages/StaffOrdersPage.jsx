@@ -34,8 +34,19 @@ export default function StaffOrdersPage() {
   usePolling(() => (tab === 'orders' ? load() : Promise.resolve()), 15000)
 
   const handleStatusChange = async (orderId, status) => {
-    await ordersApi.updateStatus(user.brand_id, orderId, status)
-    load()
+    try {
+      await ordersApi.updateStatus(user.brand_id, orderId, status)
+      load()
+    } catch (err) {
+      // Billing may have been turned on since this list loaded — the
+      // backend is the real guard, this just routes to Billing instead of
+      // surfacing a raw error.
+      if (err.response?.status === 400 && status === 'completed') {
+        setTab('billing')
+      } else {
+        throw err
+      }
+    }
   }
 
   return (
@@ -77,7 +88,12 @@ export default function StaffOrdersPage() {
         ) : tab === 'billing' ? (
           <BillingTab brandId={user.brand_id} />
         ) : (
-          <OrdersView orders={orders} onStatusChange={handleStatusChange} />
+          <OrdersView
+            orders={orders}
+            onStatusChange={handleStatusChange}
+            billingEnabled={billingEnabled}
+            onNeedsBilling={() => setTab('billing')}
+          />
         )}
       </main>
     </div>

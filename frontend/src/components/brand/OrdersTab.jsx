@@ -4,7 +4,7 @@ import { EmptyState } from '../ui'
 import OrdersView from '../OrdersView'
 import { usePolling } from '../../hooks/usePolling'
 
-export default function OrdersTab({ brandId }) {
+export default function OrdersTab({ brandId, billingEnabled, onNeedsBilling }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -15,8 +15,21 @@ export default function OrdersTab({ brandId }) {
   usePolling(refresh, 15000)
 
   const handleStatusChange = async (orderId, status) => {
-    await ordersApi.updateStatus(brandId, orderId, status)
-    load()
+    // Belt-and-suspenders: OrdersView already hides "Complete" in favor of
+    // "Bill to complete" when billing is on, but the backend is the real
+    // guard (e.g. billing could've been turned on in another tab since this
+    // list loaded), so a rejection here still routes to Billing instead of
+    // surfacing a raw error.
+    try {
+      await ordersApi.updateStatus(brandId, orderId, status)
+      load()
+    } catch (err) {
+      if (err.response?.status === 400 && status === 'completed' && onNeedsBilling) {
+        onNeedsBilling()
+      } else {
+        throw err
+      }
+    }
   }
 
   if (loading) return <p className="text-sm text-slate">Loading…</p>
@@ -25,5 +38,12 @@ export default function OrdersTab({ brandId }) {
     return <EmptyState title="No orders yet" description="Orders placed by staff from the menu display will show up here." />
   }
 
-  return <OrdersView orders={orders} onStatusChange={handleStatusChange} />
+  return (
+    <OrdersView
+      orders={orders}
+      onStatusChange={handleStatusChange}
+      billingEnabled={billingEnabled}
+      onNeedsBilling={onNeedsBilling}
+    />
+  )
 }

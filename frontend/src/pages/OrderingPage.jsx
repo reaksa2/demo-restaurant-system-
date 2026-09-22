@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { brandsApi, ordersApi } from '../services/resources'
 import { Badge, EmptyState, Select } from '../components/ui'
 import { usePolling } from '../hooks/usePolling'
-import { ExternalLink, Check, X, RotateCcw } from 'lucide-react'
+import { ExternalLink, Check, X, RotateCcw, Receipt, Clock } from 'lucide-react'
 
 const STATUS_TONES = { pending: 'accent', completed: 'success', cancelled: 'danger' }
 
@@ -25,6 +25,7 @@ function parseUtcDate(dateString) {
  * (OrdersTab/StaffOrdersPage) but wrong once orders span brands.
  */
 export default function OrderingPage() {
+  const navigate = useNavigate()
   const [brands, setBrands] = useState([])
   const [orders, setOrders] = useState([]) // flattened, tagged with brand_id/brand_name
   const [brandFilter, setBrandFilter] = useState('all')
@@ -58,6 +59,14 @@ export default function OrderingPage() {
     })
   }, [orders, brandFilter, statusFilter])
 
+  // Brand objects from brandsApi.list() already carry billing_enabled, so no
+  // extra fetch is needed — just index the ones we already have by id.
+  const billingByBrand = useMemo(() => {
+    const map = {}
+    for (const b of brands) map[b.id] = !!b.billing_enabled
+    return map
+  }, [brands])
+
   const totals = useMemo(() => {
     const pending = orders.filter((o) => o.status === 'pending').length
     const completed = orders.filter((o) => o.status === 'completed')
@@ -74,10 +83,21 @@ export default function OrderingPage() {
     try {
       await ordersApi.updateStatus(order.brand_id, order.id, status)
       await load()
+    } catch (err) {
+      // Billing may have been turned on for this brand since the list
+      // loaded — the backend is the real guard, this just routes to that
+      // brand's Billing tab instead of surfacing a raw error.
+      if (err.response?.status === 400 && status === 'completed') {
+        goToBilling(order)
+      } else {
+        throw err
+      }
     } finally {
       setActioningId(null)
     }
   }
+
+  const goToBilling = (order) => navigate(`/admin/brands/${order.brand_id}`, { state: { tab: 'billing' } })
 
   if (loading) return <p className="text-sm text-slate">Loading…</p>
 
@@ -173,13 +193,31 @@ export default function OrderingPage() {
                 <div className="mt-3 flex items-center gap-2">
                   {o.status === 'pending' ? (
                     <>
-                      <button
-                        onClick={() => changeStatus(o, 'completed')}
-                        disabled={actioningId === o.id}
-                        className="flex items-center gap-1 rounded-full bg-moss px-2.5 py-1 text-xs font-medium text-white hover:bg-moss/90 disabled:opacity-50"
-                      >
-                        <Check size={12} /> Complete
-                      </button>
+                      {billingByBrand[o.brand_id] ? (
+                        o.billed ? (
+                          <button
+                            onClick={() => goToBilling(o)}
+                            className="flex items-center gap-1 rounded-full bg-paper px-2.5 py-1 text-xs font-medium text-slate ring-1 ring-inset ring-sand hover:text-ink"
+                          >
+                            <Clock size={12} /> Awaiting payment
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => goToBilling(o)}
+                            className="flex items-center gap-1 rounded-full bg-moss px-2.5 py-1 text-xs font-medium text-white hover:bg-moss/90"
+                          >
+                            <Receipt size={12} /> Bill to complete
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          onClick={() => changeStatus(o, 'completed')}
+                          disabled={actioningId === o.id}
+                          className="flex items-center gap-1 rounded-full bg-moss px-2.5 py-1 text-xs font-medium text-white hover:bg-moss/90 disabled:opacity-50"
+                        >
+                          <Check size={12} /> Complete
+                        </button>
+                      )}
                       <button
                         onClick={() => changeStatus(o, 'cancelled')}
                         disabled={actioningId === o.id}
