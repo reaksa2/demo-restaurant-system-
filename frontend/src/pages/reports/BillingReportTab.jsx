@@ -3,7 +3,14 @@ import { Link } from 'react-router-dom'
 import { brandsApi, billsApi } from '../../services/resources'
 import { Badge, EmptyState, Select } from '../../components/ui'
 import { usePolling } from '../../hooks/usePolling'
+import { buildRevenueTrend } from '../../utils/revenueTrend'
 import { Receipt } from 'lucide-react'
+
+const PERIODS = [
+  ['daily', 'Daily'],
+  ['monthly', 'Monthly'],
+  ['yearly', 'Yearly'],
+]
 
 const STATUS_TONES = { unpaid: 'accent', paid: 'success', void: 'danger' }
 const PAYMENT_LABELS = { cash: 'Cash', card: 'Card', qr: 'QR', other: 'Other' }
@@ -25,6 +32,7 @@ export default function BillingReportTab() {
   const [bills, setBills] = useState([]) // [{ ...bill, brand_id, brand_name }]
   const [brandFilter, setBrandFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [period, setPeriod] = useState('daily')
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -58,6 +66,22 @@ export default function BillingReportTab() {
     return { paid, unpaid, count: filtered.length }
   }, [filtered])
 
+  // Revenue trend always reflects paid bills, scoped by the brand filter but
+  // independent of the status filter above — a manager switching to "Unpaid"
+  // to chase down invoices shouldn't watch the trend chart empty out.
+  const trend = useMemo(() => {
+    const paidRows = bills
+      .filter((b) => b.status === 'paid')
+      .filter((b) => brandFilter === 'all' || b.brand_id === brandFilter)
+      .map((b) => ({
+        paidAtOrCreatedAt: parseUtcDate(b.paid_at || b.created_at),
+        amount: Number(b.total_amount),
+      }))
+    return buildRevenueTrend(paidRows, period)
+  }, [bills, brandFilter, period])
+
+  const trendMax = useMemo(() => Math.max(1, ...trend.map((t) => t.total)), [trend])
+
   if (loading) return <p className="text-sm text-slate">Loading…</p>
 
   if (brands.length === 0) {
@@ -84,6 +108,38 @@ export default function BillingReportTab() {
           <p className="text-xs text-slate">Unpaid</p>
           <p className="mt-1 font-display text-2xl text-marigold-dark">${totals.unpaid.toFixed(2)}</p>
         </div>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-sand bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-medium text-ink">Revenue trend (paid bills)</p>
+          <div className="flex gap-1 rounded-md border border-sand bg-paper p-1">
+            {PERIODS.map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setPeriod(key)}
+                className={`rounded px-3 py-1 text-xs font-medium ${period === key ? 'bg-ink text-white' : 'text-slate hover:text-ink'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {trend.every((t) => t.total === 0) ? (
+          <p className="mt-4 text-sm text-slate">No paid bills in this range yet.</p>
+        ) : (
+          <div className="mt-4 flex items-end gap-1.5" style={{ height: 140 }}>
+            {trend.map((t) => (
+              <div key={t.key} className="flex flex-1 flex-col items-center gap-1" title={`${t.label}: $${t.total.toFixed(2)}`}>
+                <div
+                  className="w-full rounded-t bg-marigold-dark/80 transition-all"
+                  style={{ height: `${Math.max(2, Math.round((t.total / trendMax) * 100))}px` }}
+                />
+                <span className="w-full truncate text-center text-[10px] text-slate">{t.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
