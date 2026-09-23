@@ -108,7 +108,7 @@ export default function FoodsTab({ brandId, categories, zones }) {
                 <div key={f.id} className="flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:gap-4">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     {f.image_url ? (
-                      <img src={resolveMediaUrl(f.image_url)} alt="" className="h-12 w-12 flex-shrink-0 rounded-md object-cover" />
+                      <img src={resolveMediaUrl(f.image_url)} alt="" loading="lazy" className="h-12 w-12 flex-shrink-0 rounded-md object-cover" />
                     ) : (
                       <div className="h-12 w-12 flex-shrink-0 rounded-md bg-sand" />
                     )}
