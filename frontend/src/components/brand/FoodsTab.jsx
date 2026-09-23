@@ -49,7 +49,7 @@ export default function FoodsTab({ brandId, categories, zones }) {
     <div>
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate">Every zone's price is shown here for you — staff and customers only ever see one.</p>
-        <Button onClick={openCreate}><Plus size={16} /> New food</Button>
+        <Button onClick={openCreate}><Plus size={16} />Add New</Button>
       </div>
 
       {foods.length === 0 ? (
