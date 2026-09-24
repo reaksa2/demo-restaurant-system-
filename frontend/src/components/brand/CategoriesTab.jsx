@@ -9,7 +9,7 @@ export default function CategoriesTab({ brandId, onChange }) {
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ name_en: '', name_kh: '', sort_order: 0, parent_id: '' })
+  const [form, setForm] = useState({ name_en: '', name_kh: '', sort_order: 0, parent_id: '', is_drink: false })
   const [error, setError] = useState('')
 
   const load = () => categoriesApi.list(brandId).then((data) => { setCategories(data); setLoading(false) })
@@ -21,13 +21,13 @@ export default function CategoriesTab({ brandId, onChange }) {
 
   const openCreate = (parentId = '') => {
     setEditing(null)
-    setForm({ name_en: '', name_kh: '', sort_order: categories.length, parent_id: parentId })
+    setForm({ name_en: '', name_kh: '', sort_order: categories.length, parent_id: parentId, is_drink: false })
     setError('')
     setModalOpen(true)
   }
   const openEdit = (c) => {
     setEditing(c)
-    setForm({ name_en: c.name_en, name_kh: c.name_kh, sort_order: c.sort_order, parent_id: c.parent_id || '' })
+    setForm({ name_en: c.name_en, name_kh: c.name_kh, sort_order: c.sort_order, parent_id: c.parent_id || '', is_drink: c.is_drink })
     setError('')
     setModalOpen(true)
   }
@@ -36,7 +36,7 @@ export default function CategoriesTab({ brandId, onChange }) {
     e.preventDefault()
     setError('')
     try {
-      const payload = { ...form, parent_id: form.parent_id || null }
+      const payload = { ...form, parent_id: form.parent_id || null, is_drink: form.parent_id ? false : form.is_drink }
       if (editing) await categoriesApi.update(brandId, editing.id, payload)
       else await categoriesApi.create(brandId, payload)
       setModalOpen(false)
@@ -79,7 +79,14 @@ export default function CategoriesTab({ brandId, onChange }) {
             <div key={c.id} className="rounded-lg border border-sand bg-white">
               <div className="flex items-center justify-between px-5 py-3">
                 <div>
-                  <p className="font-khmer font-medium text-ink">{c.name_kh}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-khmer font-medium text-ink">{c.name_kh}</p>
+                    {c.is_drink && (
+                      <span className="rounded-full bg-marigold-light px-2 py-0.5 text-[11px] font-medium text-marigold-dark">
+                        Excluded from "All"
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-slate">{c.name_en}</p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -124,6 +131,22 @@ export default function CategoriesTab({ brandId, onChange }) {
           <Input label="Name (English)" required value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} />
           <Input label="Name (Khmer)" required value={form.name_kh} onChange={(e) => setForm({ ...form, name_kh: e.target.value })} className="font-khmer" />
           <Input label="Sort order" type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })} />
+          {!form.parent_id && (
+            <label className="flex items-start gap-2.5 rounded-md border border-sand bg-paper p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={form.is_drink}
+                onChange={(e) => setForm({ ...form, is_drink: e.target.checked })}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="font-medium text-ink">Drink category</span>
+                <span className="block text-xs text-slate">
+                  Leaves this category's foods out of the menu's "All" tab. They still show up normally under this category's own tab.
+                </span>
+              </span>
+            </label>
+          )}
           {error && <p className="text-sm text-clay">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>

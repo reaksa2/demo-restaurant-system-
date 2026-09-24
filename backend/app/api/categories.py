@@ -51,6 +51,8 @@ def create_category(
     assert_can_manage_brand_content(db, scope["user"], brand_id)
     _get_brand_or_404(db, brand_id)
     _validate_parent(db, brand_id, payload.parent_id)
+    if payload.is_drink and payload.parent_id is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only a top-level category can be marked as a drink category")
 
     category = Category(brand_id=brand_id, **payload.model_dump())
     db.add(category)
@@ -78,6 +80,11 @@ def update_category(
         # A category that already has its own subcategories can't become a subcategory itself.
         if data["parent_id"] is not None and db.query(Category).filter(Category.parent_id == category_id).first():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This category has subcategories and cannot become a subcategory itself")
+
+    resulting_parent_id = data.get("parent_id", category.parent_id)
+    resulting_is_drink = data.get("is_drink", category.is_drink)
+    if resulting_is_drink and resulting_parent_id is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only a top-level category can be marked as a drink category")
 
     for field, value in data.items():
         setattr(category, field, value)

@@ -2,6 +2,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import require_staff
@@ -63,10 +64,15 @@ def get_staff_menu(
     brand = db.query(Brand).filter(Brand.id == brand_id).first()
     categories = db.query(Category).filter(Category.brand_id == brand_id).order_by(Category.sort_order).all()
 
+    # Alphabetical by English name — the canonical name field used
+    # everywhere else in the app — so both the flat "All" view and each
+    # category/subcategory section list foods in a stable, predictable
+    # order instead of whatever order they happened to be created in.
     foods = (
         db.query(Food)
         .options(joinedload(Food.prices))
         .filter(Food.brand_id == brand_id)
+        .order_by(func.lower(Food.name_en))
         .all()
     )
 

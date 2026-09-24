@@ -22,6 +22,11 @@ export default function StaffMenuPage() {
   const [activeZoneId, setActiveZoneId] = useState(null);
   const [zoneSwitching, setZoneSwitching] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
+  // Which subcategory tab is active within activeCategory ("all" = every
+  // subcategory, grouped with headings, same as before this tab existed).
+  // Reset whenever the top-level category changes so a leftover selection
+  // from a previous category can't silently filter the new one.
+  const [activeSubcategory, setActiveSubcategory] = useState("all");
   const [error, setError] = useState("");
   const [cart, setCart] = useState({}); // food_id -> quantity
   const [cartOpen, setCartOpen] = useState(false);
@@ -156,17 +161,54 @@ export default function StaffMenuPage() {
     () => (menu ? menu.categories.filter((c) => !c.parent_id) : []),
     [menu],
   );
+  const categoriesById = useMemo(() => {
+    const map = {};
+    if (menu) for (const c of menu.categories) map[c.id] = c;
+    return map;
+  }, [menu]);
   const subcategoriesOf = (parentId) =>
     menu.categories.filter((c) => c.parent_id === parentId);
+  // Subcategories of whichever top-level category is currently active, so
+  // the second tab row and the section-grouping logic below share one
+  // source of truth for "what counts as a subcategory tab right now".
+  const activeSubcategories = useMemo(
+    () => (menu && activeCategory !== "all" ? subcategoriesOf(activeCategory) : []),
+    [menu, activeCategory],
+  );
   const orderingEnabled = menu?.brand?.ordering_enabled ?? true;
+
+  const selectCategory = (categoryId) => {
+    setActiveCategory(categoryId);
+    setActiveSubcategory("all");
+  };
+
+  // A food's category might itself BE a top-level "Drinks" category, or it
+  // might be a subcategory nested under one (e.g. "Drinks" -> "Cold") — walk
+  // up to the top-level ancestor either way before checking is_drink, since
+  // that flag only ever lives on the top-level category.
+  const isDrinkFood = (food) => {
+    const cat = food.category_id ? categoriesById[food.category_id] : null;
+    if (!cat) return false;
+    const topCategory = cat.parent_id ? categoriesById[cat.parent_id] : cat;
+    return Boolean(topCategory?.is_drink);
+  };
 
   const sections = useMemo(() => {
     if (!menu) return [];
+    // "All" means "all food" — drink categories are deliberately left out
+    // here so they don't get lost in one long undifferentiated list; they're
+    // still one tap away under their own category tab. Foods already arrive
+    // sorted by name from the API, and filtering preserves that order.
     if (activeCategory === "all") {
-      return [{ heading: null, foods: menu.foods }];
+      return [{ heading: null, foods: menu.foods.filter((f) => !isDrinkFood(f)) }];
+    }
+    // A specific subcategory tab was picked — show just that, no heading
+    // needed since the tab selection already makes it unambiguous.
+    if (activeSubcategory !== "all") {
+      return [{ heading: null, foods: menu.foods.filter((f) => f.category_id === activeSubcategory) }];
     }
     const direct = menu.foods.filter((f) => f.category_id === activeCategory);
-    const subSections = subcategoriesOf(activeCategory)
+    const subSections = activeSubcategories
       .map((sub) => ({
         heading: sub,
         foods: menu.foods.filter((f) => f.category_id === sub.id),
@@ -175,7 +217,7 @@ export default function StaffMenuPage() {
     const directSection =
       direct.length > 0 ? [{ heading: null, foods: direct }] : [];
     return [...directSection, ...subSections];
-  }, [menu, activeCategory]);
+  }, [menu, activeCategory, activeSubcategory, activeSubcategories, categoriesById]);
 
   const foodsById = useMemo(() => {
     const map = {};
@@ -294,10 +336,14 @@ export default function StaffMenuPage() {
         )}
 
         {topCategories.length > 0 && (
-          <div className="mx-auto flex max-w-5xl gap-1.5 overflow-x-auto px-6 pb-4">
+          // Horizontal scroll on narrow phones where there isn't room to
+          // wrap without eating too much vertical space; from small tablets
+          // up, categories wrap onto as many rows as needed instead, so
+          // every category is visible at a glance with nothing to scroll.
+          <div className="mx-auto flex max-w-5xl flex-nowrap gap-1.5 overflow-x-auto px-6 pb-3 sm:flex-wrap sm:overflow-x-visible">
             <CategoryTab
               active={activeCategory === "all"}
-              onClick={() => setActiveCategory("all")}
+              onClick={() => selectCategory("all")}
               labelEn="All"
               labelKh="ទាំងអស់"
             />
@@ -305,9 +351,29 @@ export default function StaffMenuPage() {
               <CategoryTab
                 key={c.id}
                 active={activeCategory === c.id}
-                onClick={() => setActiveCategory(c.id)}
+                onClick={() => selectCategory(c.id)}
                 labelEn={c.name_en}
                 labelKh={c.name_kh}
+              />
+            ))}
+          </div>
+        )}
+
+        {activeSubcategories.length > 0 && (
+          <div className="mx-auto flex max-w-5xl flex-nowrap gap-1.5 overflow-x-auto px-6 pb-4 sm:flex-wrap sm:overflow-x-visible">
+            <SubcategoryTab
+              active={activeSubcategory === "all"}
+              onClick={() => setActiveSubcategory("all")}
+              labelEn="All"
+              labelKh="ទាំងអស់"
+            />
+            {activeSubcategories.map((sub) => (
+              <SubcategoryTab
+                key={sub.id}
+                active={activeSubcategory === sub.id}
+                onClick={() => setActiveSubcategory(sub.id)}
+                labelEn={sub.name_en}
+                labelKh={sub.name_kh}
               />
             ))}
           </div>
@@ -406,6 +472,28 @@ function CategoryTab({ active, onClick, labelEn, labelKh }) {
         active
           ? "bg-marigold-dark text-white"
           : "bg-white text-slate ring-1 ring-inset ring-sand hover:text-ink"
+      }`}
+    >
+      <span>
+        <span className="font-khmer">{labelKh}</span>{" "}
+        <span className="opacity-70">{labelEn}</span>
+      </span>
+    </button>
+  );
+}
+
+// Visually a size down from CategoryTab (smaller, outlined instead of solid
+// when active) so the two rows read as a clear hierarchy — top-level
+// category, then subcategory within it — rather than two rows of the same
+// kind of button.
+function SubcategoryTab({ active, onClick, labelEn, labelKh }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-shrink-0 rounded-full px-3 py-1 text-[11px] font-medium transition-colors sm:text-xs ${
+        active
+          ? "bg-moss text-white"
+          : "bg-white text-slate ring-1 ring-inset ring-sand/80 hover:text-ink"
       }`}
     >
       <span>

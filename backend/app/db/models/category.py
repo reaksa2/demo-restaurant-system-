@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -22,6 +22,15 @@ class Category(Base):
     name_en = Column(String(255), nullable=False)
     name_kh = Column(String(255), nullable=False)
     sort_order = Column(Integer, default=0, nullable=False)
+
+    # Marks a top-level category (e.g. "Drinks") whose foods should be left
+    # out of the menu's "All" tab — they're still fully browsable under their
+    # own category tab, just not mixed into the default flat view. Meaningful
+    # only on a top-level category; the menu display resolves a subcategory's
+    # own top-level ancestor to decide whether to exclude it, so flagging a
+    # subcategory itself has no effect (the admin UI only exposes this toggle
+    # for top-level categories to avoid that confusion).
+    is_drink = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
