@@ -9,6 +9,9 @@ from app.db.models.food_price import FoodPrice
 from app.db.models.associations import UserGroup, UserBrand
 from app.db.models.order import Order, OrderItem
 from app.db.models.bill import Bill, BillItem, BillOrder, BillStatus, PaymentMethod
+from app.db.models.operations import (  # noqa: F401
+    Expense, StockItem, StockMovement, FoodIngredient, Supplier, PurchaseOrder, PurchaseItem,
+)
 
 __all__ = [
     "User",
@@ -29,4 +32,11 @@ __all__ = [
     "BillOrder",
     "BillStatus",
     "PaymentMethod",
+    "Expense",
+    "StockItem",
+    "StockMovement",
+    "FoodIngredient",
+    "Supplier",
+    "PurchaseOrder",
+    "PurchaseItem",
 ]

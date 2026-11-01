@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { brandsApi, billsApi } from '../../services/resources'
 import { Badge, EmptyState, Select } from '../../components/ui'
+import { useAuth } from '../../stores/authStore'
+import { can } from '../../lib/access'
 import { usePolling } from '../../hooks/usePolling'
 import { buildRevenueTrend } from '../../utils/revenueTrend'
 import { Receipt } from 'lucide-react'
@@ -28,6 +30,10 @@ function parseUtcDate(dateString) {
  * — paying/voiding a bill still happens from the brand's own Billing tab.
  */
 export default function BillingReportTab() {
+  const { user } = useAuth()
+  // "Open brand" jumps to the brand's management page, which only roles with
+  // menu access can open — an accountant sees the figures but no dead link.
+  const canOpenBrand = can(user, 'menu.view')
   const [brands, setBrands] = useState([])
   const [bills, setBills] = useState([]) // [{ ...bill, brand_id, brand_name }]
   const [brandFilter, setBrandFilter] = useState('all')
@@ -180,12 +186,14 @@ export default function BillingReportTab() {
                     {b.status === 'paid' ? `Paid (${PAYMENT_LABELS[b.payment_method] || ''})` : b.status}
                   </Badge>
                   <span className="font-display text-lg text-marigold-dark">${Number(b.total_amount).toFixed(2)}</span>
-                  <Link
-                    to={`/admin/brands/${b.brand_id}`}
-                    className="flex items-center gap-1 rounded-md border border-sand px-3 py-1.5 text-sm text-slate hover:text-ink"
-                  >
-                    <Receipt size={14} /> Open brand
-                  </Link>
+                  {canOpenBrand && (
+                    <Link
+                      to={`/admin/brands/${b.brand_id}`}
+                      className="flex items-center gap-1 rounded-md border border-sand px-3 py-1.5 text-sm text-slate hover:text-ink"
+                    >
+                      <Receipt size={14} /> Open brand
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}

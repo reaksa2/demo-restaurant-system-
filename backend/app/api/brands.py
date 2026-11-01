@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_scope
 from app.core.permissions import require_level1, assert_brand_access, require_roles
+from app.core.modules import LIMITED_ROLES, BRAND_SCOPED_ROLES
 from app.db.database import get_db
 from app.db.models.brand import Brand
 from app.db.models.group import Group
@@ -16,8 +17,8 @@ router = APIRouter(prefix="/api/brands", tags=["brands"])
 
 def _to_out(brand: Brand, user) -> BrandOut:
     out = BrandOut.model_validate(brand)
-    if user.role == UserRole.STAFF:
-        # Staff can read basic brand info but never the Telegram bot credentials.
+    if user.role in LIMITED_ROLES:
+        # Staff/sales/accountant can read basic brand info but never the Telegram bot credentials.
         out.telegram_bot_token = None
         out.telegram_chat_id = None
     return out
@@ -30,7 +31,7 @@ def list_brands(scope: dict = Depends(get_current_user_scope), db: Session = Dep
         brands = db.query(Brand).order_by(Brand.name_en).all()
     elif user.role == UserRole.LEVEL2 and scope["group_id"] is not None:
         brands = db.query(Brand).filter(Brand.group_id == scope["group_id"]).order_by(Brand.name_en).all()
-    elif user.role in (UserRole.LEVEL3, UserRole.STAFF) and scope["brand_id"] is not None:
+    elif user.role in BRAND_SCOPED_ROLES and scope["brand_id"] is not None:
         brands = db.query(Brand).filter(Brand.id == scope["brand_id"]).all()
     else:
         brands = []

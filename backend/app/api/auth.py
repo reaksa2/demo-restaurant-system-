@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_scope, get_current_user, oauth2_scheme
 from app.core.config import settings
+from app.core.modules import permissions_for
 from app.core.security import verify_password, create_access_token, decode_access_token
 from app.db.database import get_db
 from app.db.models.user import User
@@ -125,6 +126,7 @@ def get_me(scope: dict = Depends(get_current_user_scope)):
         group_id=scope["group_id"],
         brand_id=scope["brand_id"],
         zone_id=scope["zone_id"],
+        permissions=permissions_for(user),
     )
 
 
@@ -163,5 +165,6 @@ def update_my_profile(
         group_id=scope["group_id"],
         brand_id=scope["brand_id"],
         zone_id=scope["zone_id"],
+        permissions=permissions_for(user),
     )
 

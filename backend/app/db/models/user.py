@@ -14,6 +14,8 @@ class UserRole(str, enum.Enum):
     LEVEL2 = "level2"    # Group manager — one group, all its brands
     LEVEL3 = "level3"    # Brand manager — one brand only
     STAFF = "staff"      # Normal staff — one brand + one zone, menu display only
+    ACCOUNTANT = "accountant"  # One brand — sees ONLY the accounting side (reports; future: income/expense, stock value)
+    SALES = "sales"            # One brand — sees ONLY the sales side (orders, checkout/billing)
 
 
 class User(Base):

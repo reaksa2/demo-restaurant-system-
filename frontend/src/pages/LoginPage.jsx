@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../stores/authStore'
+import { homePath } from '../lib/access'
 import { Button, Input } from '../components/ui'
 import { UtensilsCrossed } from 'lucide-react'
 
@@ -25,7 +26,7 @@ export default function LoginPage() {
   }, [])
 
   if (user) {
-    navigate(user.role === 'staff' ? '/staff/menu' : '/admin', { replace: true })
+    navigate(homePath(user), { replace: true })
   }
 
   const handleSubmit = async (e) => {
@@ -34,8 +35,9 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       await login(identifier, password)
-      const dest = location.state?.from || '/admin'
-      navigate(dest, { replace: true })
+      // The role's own landing page is picked by the `if (user)` redirect above
+      // once the profile loads; only honour an explicit deep link here.
+      if (location.state?.from) navigate(location.state.from, { replace: true })
     } catch (err) {
       setError(err.response?.data?.detail || 'Incorrect email/username or password.')
     } finally {

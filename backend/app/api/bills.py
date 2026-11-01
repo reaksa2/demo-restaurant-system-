@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import require_staff, get_current_user_scope
-from app.core.permissions import assert_can_manage_brand_content
+from app.core.permissions import assert_brand_function_access
+from app.core.stock import deduct_stock_for_orders
+from app.core.modules import BILLS_VIEW, BILLS_CREATE, BILLS_PAY, BILLS_VOID
 from app.db.database import get_db
 from app.db.models.brand import Brand
 from app.db.models.order import Order
@@ -17,14 +19,9 @@ from app.schemas.bill import BillCreate, BillOut, BillItemOut, BillPay
 router = APIRouter(tags=["bills"])
 
 
-def _assert_bill_access(db: Session, scope: dict, brand_id: uuid.UUID):
-    """Same access rule as orders: Level 1/2/3 managing the brand, or Staff for their own brand."""
-    user = scope["user"]
-    if user.role == UserRole.STAFF:
-        if scope["brand_id"] != brand_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this brand's bills")
-        return
-    assert_can_manage_brand_content(db, user, brand_id)
+def _assert_bill_access(db: Session, scope: dict, brand_id: uuid.UUID, permission: str = BILLS_VIEW):
+    """Needs the bills permission for the caller's role (core/modules.py) and the brand inside their scope."""
+    assert_brand_function_access(db, scope, brand_id, permission)
 
 
 def _money(value) -> Decimal:
@@ -86,7 +83,7 @@ def create_bill(
     rejected (nothing to charge for) rather than silently skipped, so staff
     notice a bad order_id instead of getting a bill short a line item.
     """
-    _assert_bill_access(db, scope, brand_id)
+    _assert_bill_access(db, scope, brand_id, BILLS_CREATE)
 
     brand = db.query(Brand).filter(Brand.id == brand_id).first()
     if brand is None:
@@ -174,7 +171,7 @@ def create_bill(
 
 @router.get("/api/brands/{brand_id}/bills", response_model=list[BillOut])
 def list_bills(brand_id: uuid.UUID, scope: dict = Depends(get_current_user_scope), db: Session = Depends(get_db)):
-    _assert_bill_access(db, scope, brand_id)
+    _assert_bill_access(db, scope, brand_id, BILLS_VIEW)
     bills = (
         db.query(Bill)
         .options(joinedload(Bill.items), joinedload(Bill.zone), joinedload(Bill.created_by))
@@ -189,7 +186,7 @@ def list_bills(brand_id: uuid.UUID, scope: dict = Depends(get_current_user_scope
 @router.get("/api/brands/{brand_id}/bills/{bill_id}", response_model=BillOut)
 def get_bill(brand_id: uuid.UUID, bill_id: uuid.UUID, scope: dict = Depends(get_current_user_scope), db: Session = Depends(get_db)):
     """Fetches one bill for printing/viewing as an invoice."""
-    _assert_bill_access(db, scope, brand_id)
+    _assert_bill_access(db, scope, brand_id, BILLS_VIEW)
     bill = _load_bill(db, bill_id, brand_id)
     if bill is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bill not found")
@@ -204,7 +201,7 @@ def pay_bill(
     scope: dict = Depends(get_current_user_scope),
     db: Session = Depends(get_db),
 ):
-    _assert_bill_access(db, scope, brand_id)
+    _assert_bill_access(db, scope, brand_id, BILLS_PAY)
     bill = (
         db.query(Bill)
         .options(joinedload(Bill.items), joinedload(Bill.zone), joinedload(Bill.created_by), joinedload(Bill.orders))
@@ -224,10 +221,16 @@ def pay_bill(
     # "completed" automatically, same as if staff had marked them done from
     # the Orders tab — so a paid bill never leaves an order sitting as
     # "pending" in the kitchen/orders view.
+    paid_orders = []
     for bo in bill.orders:
         order = db.query(Order).filter(Order.id == bo.order_id).first()
         if order is not None and order.status != "cancelled":
             order.status = "completed"
+            paid_orders.append(order)
+
+    # Selling food uses up its recipe ingredients (foods without a recipe are
+    # ignored; an order already deducted earlier is skipped, so never twice).
+    deduct_stock_for_orders(db, paid_orders)
 
     db.commit()
     db.refresh(bill)
@@ -243,7 +246,7 @@ def void_bill(brand_id: uuid.UUID, bill_id: uuid.UUID, scope: dict = Depends(get
     outside the app, not silently erased. Un-marks the underlying orders so
     they can be billed again correctly.
     """
-    _assert_bill_access(db, scope, brand_id)
+    _assert_bill_access(db, scope, brand_id, BILLS_VOID)
     bill = (
         db.query(Bill)
         .options(joinedload(Bill.orders))

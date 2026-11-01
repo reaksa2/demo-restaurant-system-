@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import require_staff, get_current_user_scope
-from app.core.permissions import assert_can_manage_brand_content
+from app.core.permissions import assert_brand_function_access
+from app.core.modules import ORDERS_VIEW, ORDERS_MANAGE
+from app.core.stock import deduct_stock_for_orders
 from app.core.telegram import send_telegram_message, format_order_message
 from app.db.database import get_db
 from app.db.models.brand import Brand
@@ -18,20 +20,14 @@ from app.schemas.order import OrderCreate, OrderOut, OrderItemOut, OrderStatusUp
 router = APIRouter(tags=["orders"])
 
 
-def _assert_order_access(db: Session, scope: dict, brand_id: uuid.UUID):
+def _assert_order_access(db: Session, scope: dict, brand_id: uuid.UUID, permission: str = ORDERS_VIEW):
     """
-    Viewing/managing orders (not placing them) is allowed for:
-      - Level 1/2/3, scoped the same way as managing any other brand content
-      - Staff, but only for their OWN assigned brand — they can see and close
-        out any table's order in their brand (not just ones they personally
-        placed), matching how a cashier actually works a shift.
+    Viewing/managing orders (not placing them). Needs the orders permission
+    for the caller's role (see core/modules.py) and the brand inside their
+    scope: managers as for any brand content, staff/sales locked to their own
+    brand. Accountants have no order permission at all.
     """
-    user = scope["user"]
-    if user.role == UserRole.STAFF:
-        if scope["brand_id"] != brand_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this brand's orders")
-        return
-    assert_can_manage_brand_content(db, user, brand_id)
+    assert_brand_function_access(db, scope, brand_id, permission)
 
 
 def _to_out(order: Order) -> OrderOut:
@@ -162,7 +158,7 @@ async def create_order(payload: OrderCreate, scope: dict = Depends(require_staff
 @router.get("/api/brands/{brand_id}/orders", response_model=list[OrderOut])
 def list_orders(brand_id: uuid.UUID, scope: dict = Depends(get_current_user_scope), db: Session = Depends(get_db)):
     """Level 1/2/3 (any brand they manage) or Staff (their own brand only)."""
-    _assert_order_access(db, scope, brand_id)
+    _assert_order_access(db, scope, brand_id, ORDERS_VIEW)
     orders = (
         db.query(Order)
         .options(joinedload(Order.items), joinedload(Order.zone), joinedload(Order.placed_by))
@@ -187,7 +183,7 @@ def update_order_status(
     completed once the customer pays and leaves. Same access rule as viewing:
     Level 1/2/3 for brands they manage, or Staff for their own brand.
     """
-    _assert_order_access(db, scope, brand_id)
+    _assert_order_access(db, scope, brand_id, ORDERS_MANAGE)
     order = (
         db.query(Order)
         .options(joinedload(Order.items), joinedload(Order.zone), joinedload(Order.placed_by))
@@ -213,6 +209,9 @@ def update_order_status(
             )
 
     order.status = payload.status
+    if payload.status == "completed":
+        # Brands without billing close orders by hand — that's their "sale".
+        deduct_stock_for_orders(db, [order])
     db.commit()
     db.refresh(order)
     return _to_out(order)

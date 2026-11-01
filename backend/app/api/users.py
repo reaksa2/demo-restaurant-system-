@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_scope
 from app.core.permissions import require_roles
+from app.core.modules import BRAND_SCOPED_ROLES, BRAND_LEVEL_ROLES, USERS_MANAGE, has_permission
 from app.core.security import hash_password
 from app.db.database import get_db
 from app.db.models.brand import Brand
@@ -29,7 +30,7 @@ def _to_out(db: Session, user: User) -> UserOut:
         link = db.query(UserGroup).filter(UserGroup.user_id == user.id).first()
         if link:
             group_id = link.group_id
-    elif user.role in (UserRole.LEVEL3, UserRole.STAFF):
+    elif user.role in BRAND_SCOPED_ROLES:
         link = db.query(UserBrand).filter(UserBrand.user_id == user.id).first()
         if link:
             brand_id = link.brand_id
@@ -87,13 +88,13 @@ def list_users(scope: dict = Depends(get_current_user_scope), db: Session = Depe
             for link in db.query(UserBrand).filter(UserBrand.brand_id == brand_id).all()
         }
         users = (
-            db.query(User).filter(User.id.in_(staff_ids), User.role == UserRole.STAFF).all()
+            db.query(User).filter(User.id.in_(staff_ids), User.role.in_([UserRole.STAFF, UserRole.SALES, UserRole.ACCOUNTANT])).all()
             if staff_ids
             else []
         )
 
-    else:  # STAFF
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff cannot manage users")
+    else:  # STAFF / SALES / ACCOUNTANT
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your role cannot manage users")
 
     return [_to_out(db, u) for u in users]
 
@@ -112,13 +113,13 @@ def create_user(payload: UserCreate, scope: dict = Depends(get_current_user_scop
         pass  # can create LEVEL2, LEVEL3, or STAFF
     elif creator.role == UserRole.LEVEL2:
         require_roles(creator, UserRole.LEVEL2)
-        if payload.role not in (UserRole.LEVEL3, UserRole.STAFF):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Group managers can only create brand managers or staff")
+        if payload.role not in BRAND_LEVEL_ROLES:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Group managers can only create brand-level accounts (brand manager, staff, sales, accountant)")
     elif creator.role == UserRole.LEVEL3:
-        if payload.role != UserRole.STAFF:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Brand managers can only create staff")
+        if payload.role not in (UserRole.STAFF, UserRole.SALES, UserRole.ACCOUNTANT):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Brand managers can only create staff, sales or accountant accounts")
     else:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff cannot create users")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your role cannot create users")
 
     # --- validate + resolve scope for the new user ---
     group_id = None
@@ -132,14 +133,16 @@ def create_user(payload: UserCreate, scope: dict = Depends(get_current_user_scop
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
         group_id = payload.group_id
 
-    elif payload.role == UserRole.LEVEL3:
+    elif payload.role in (UserRole.LEVEL3, UserRole.SALES, UserRole.ACCOUNTANT):
         if payload.brand_id is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="brand_id is required for a Level 3 user")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"brand_id is required for a {payload.role.value} user")
         brand = db.query(Brand).filter(Brand.id == payload.brand_id).first()
         if brand is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
         if creator.role == UserRole.LEVEL2 and brand.group_id != scope["group_id"]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="That brand is outside your group")
+        if creator.role == UserRole.LEVEL3 and payload.brand_id != scope["brand_id"]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only create accounts for your own brand")
         brand_id = payload.brand_id
 
     elif payload.role == UserRole.STAFF:
@@ -201,8 +204,8 @@ def update_user(
     visible_ids = {u.id for u in list_users(scope, db)}  # type: ignore[arg-type]
     if creator.role != UserRole.LEVEL1 and target.id not in visible_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this user")
-    if creator.role == UserRole.STAFF:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff cannot manage users")
+    if not has_permission(creator, USERS_MANAGE):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your role cannot manage users")
 
     # exclude_unset so a "zone_id": null in the request body (switching a
     # staff account to all-zone access) is distinguishable from the field
@@ -249,8 +252,8 @@ def delete_user(user_id: uuid.UUID, scope: dict = Depends(get_current_user_scope
     visible_ids = {u.id for u in list_users(scope, db)}  # type: ignore[arg-type]
     if creator.role != UserRole.LEVEL1 and target.id not in visible_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this user")
-    if creator.role == UserRole.STAFF:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff cannot manage users")
+    if not has_permission(creator, USERS_MANAGE):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your role cannot manage users")
     if target.id == creator.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete your own account")
 
@@ -262,8 +265,8 @@ def _check_session_access(scope: dict, target: User, db: Session) -> None:
     """Shared permission check for all three session-management endpoints
     below: same visibility rule as viewing/editing the user themselves."""
     creator = scope["user"]
-    if creator.role == UserRole.STAFF:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff cannot manage users")
+    if not has_permission(creator, USERS_MANAGE):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your role cannot manage users")
     visible_ids = {u.id for u in list_users(scope, db)}  # type: ignore[arg-type]
     if creator.role != UserRole.LEVEL1 and target.id not in visible_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this user")

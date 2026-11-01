@@ -77,7 +77,10 @@ def assert_brand_access(db: Session, user: User, brand_id: uuid.UUID, *, allow_s
         if link is not None and link.brand_id == brand_id:
             return
 
-    if user.role == UserRole.STAFF and allow_staff:
+    # STAFF and the function-only roles (sales/accountant) get READ access to
+    # their own brand's basic info when the caller allows it; what they can
+    # actually do beyond that is gated per-module (core/modules.py).
+    if user.role in (UserRole.STAFF, UserRole.SALES, UserRole.ACCOUNTANT) and allow_staff:
         link = get_user_brand_link(db, user)
         if link is not None and link.brand_id == brand_id:
             return
@@ -93,3 +96,20 @@ def assert_can_manage_brand_content(db: Session, user: User, brand_id: uuid.UUID
     """
     require_roles(user, UserRole.LEVEL1, UserRole.LEVEL2, UserRole.LEVEL3)
     assert_brand_access(db, user, brand_id, allow_staff=False)
+
+
+def assert_brand_function_access(db: Session, scope: dict, brand_id: uuid.UUID, permission: str):
+    """
+    Orders / bills: the caller needs `permission` for their role AND the brand
+    must be inside their scope. Managers (L1/2/3) are scoped exactly like
+    content management; staff/sales/accountant are locked to their one brand.
+    """
+    from app.core.modules import require_permission  # local import: modules imports models too
+
+    user = scope["user"]
+    require_permission(user, permission)
+    if user.role in (UserRole.STAFF, UserRole.SALES, UserRole.ACCOUNTANT):
+        if scope["brand_id"] != brand_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this brand")
+        return
+    assert_can_manage_brand_content(db, user, brand_id)

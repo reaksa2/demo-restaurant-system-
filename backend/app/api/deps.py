@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token
 from app.core.permissions import get_user_group_id, get_user_brand_link
+from app.core.modules import BRAND_SCOPED_ROLES
 from app.db.database import get_db
 from app.db.models.user import User, UserRole
 from app.db.models.session import UserSession
@@ -79,7 +80,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 def get_current_user_scope(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
     """
     Returns the current user plus their resolved scope
-    (group_id for LEVEL2; brand_id (+zone_id for STAFF) for LEVEL3/STAFF).
+    (group_id for LEVEL2; brand_id (+zone_id for STAFF) for every brand-scoped role).
     """
     group_id = None
     brand_id = None
@@ -87,7 +88,7 @@ def get_current_user_scope(user: User = Depends(get_current_user), db: Session =
 
     if user.role == UserRole.LEVEL2:
         group_id = get_user_group_id(db, user)
-    elif user.role in (UserRole.LEVEL3, UserRole.STAFF):
+    elif user.role in BRAND_SCOPED_ROLES:
         link = get_user_brand_link(db, user)
         if link is not None:
             brand_id = link.brand_id

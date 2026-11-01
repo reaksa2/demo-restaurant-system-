@@ -22,8 +22,14 @@ const UsersPage = lazy(() => import('./pages/UsersPage'))
 const ClonePage = lazy(() => import('./pages/ClonePage'))
 const StaffMenuPage = lazy(() => import('./pages/StaffMenuPage'))
 const StaffOrdersPage = lazy(() => import('./pages/StaffOrdersPage'))
+const SalesPage = lazy(() => import('./pages/SalesPage'))
+const ExpensesPage = lazy(() => import('./pages/ExpensesPage'))
+const InventoryPage = lazy(() => import('./pages/InventoryPage'))
+const PurchasingPage = lazy(() => import('./pages/PurchasingPage'))
 
-const ADMIN_ROLES = ['level1', 'level2', 'level3']
+// Everyone who works inside the admin panel. What each of them can open is
+// decided per route by permission (backend/app/core/modules.py), not by role.
+const ADMIN_ROLES = ['level1', 'level2', 'level3', 'sales', 'accountant']
 
 // Route chunks are already small (a few hundred ms on a slow connection),
 // so this is a plain, unbranded placeholder rather than a spinner component —
@@ -66,14 +72,18 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<DashboardPage />} />
-              <Route path="groups" element={<ProtectedRoute roles={['level1']}><GroupsPage /></ProtectedRoute>} />
-              <Route path="brands" element={<BrandsPage />} />
-              <Route path="brands/:brandId" element={<BrandDetailPage />} />
-              <Route path="ordering" element={<OrderingPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="clone" element={<ProtectedRoute roles={['level1', 'level2']}><ClonePage /></ProtectedRoute>} />
+              <Route index element={<ProtectedRoute permission="dashboard.view"><DashboardPage /></ProtectedRoute>} />
+              <Route path="groups" element={<ProtectedRoute permission="groups.manage"><GroupsPage /></ProtectedRoute>} />
+              <Route path="brands" element={<ProtectedRoute permission="menu.view"><BrandsPage /></ProtectedRoute>} />
+              <Route path="brands/:brandId" element={<ProtectedRoute permission="menu.view"><BrandDetailPage /></ProtectedRoute>} />
+              <Route path="ordering" element={<ProtectedRoute permission="ordering.board"><OrderingPage /></ProtectedRoute>} />
+              <Route path="sales" element={<ProtectedRoute permission="sales.desk"><SalesPage /></ProtectedRoute>} />
+              <Route path="reports" element={<ProtectedRoute permission="reports.view"><ReportsPage /></ProtectedRoute>} />
+              <Route path="expenses" element={<ProtectedRoute permission="expenses.view"><ExpensesPage /></ProtectedRoute>} />
+              <Route path="inventory" element={<ProtectedRoute permission="inventory.view"><InventoryPage /></ProtectedRoute>} />
+              <Route path="purchasing" element={<ProtectedRoute permission="purchasing.view"><PurchasingPage /></ProtectedRoute>} />
+              <Route path="users" element={<ProtectedRoute permission="users.manage"><UsersPage /></ProtectedRoute>} />
+              <Route path="clone" element={<ProtectedRoute permission="clone.menu"><ClonePage /></ProtectedRoute>} />
             </Route>
 
             <Route path="/" element={<Navigate to="/login" replace />} />

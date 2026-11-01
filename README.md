@@ -160,3 +160,7 @@ runtime `ArgumentError` — needed to be `joinedload(...).joinedload(FoodPrice.z
 endpoint with a live request, not from `import`-checking the app — which is
 why this build was validated with real HTTP calls against a real database
 rather than static review alone.
+
+
+## Roles & back-office modules
+See `UPGRADE_GUIDE.md` for the full list of roles (Developer, Group Manager, Brand Manager, Sales, Accountant, Staff), what each can do, the new Expenses / Inventory / Purchasing / Reports modules, and how to upgrade a live database. Permissions are defined in `backend/app/core/modules.py`.

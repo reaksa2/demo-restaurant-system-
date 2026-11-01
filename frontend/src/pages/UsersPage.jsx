@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../stores/authStore'
+import { can, ROLE_LABELS } from '../lib/access'
 import { usersApi, groupsApi, brandsApi, zonesApi } from '../services/resources'
 import { Button, Input, Select, Badge, Checkbox, EmptyState } from '../components/ui'
 import { Modal } from '../components/Modal'
@@ -42,13 +43,23 @@ function timeAgo(iso) {
   return `${days}d ago`
 }
 
-const ROLE_LABELS = { level1: 'Developer', level2: 'Group Manager', level3: 'Brand Manager', staff: 'Staff' }
-const ROLE_TONES = { level1: 'accent', level2: 'accent', level3: 'default', staff: 'success' }
+const ROLE_TONES = { level1: 'accent', level2: 'accent', level3: 'default', staff: 'success', sales: 'success', accountant: 'default' }
+
+// Roles that are tied to exactly one brand.
+const BRAND_ROLES = ['level3', 'staff', 'sales', 'accountant']
+// One-line description shown under the role picker so admins know what they're granting.
+const ROLE_HINTS = {
+  level2: 'Manages one group and every brand in it — sees everything inside it.',
+  level3: 'Manages one brand — menu, orders, billing, reports, users.',
+  staff: 'Table-side menu display and taking orders.',
+  sales: 'Sales only: live orders, checkout and payments for one brand. No reports, menu or users.',
+  accountant: 'Accounting only: bills and revenue reports for one brand. No orders, menu or users.',
+}
 
 const CREATABLE_ROLES = {
-  level1: ['level2', 'level3', 'staff'],
-  level2: ['level3', 'staff'],
-  level3: ['staff'],
+  level1: ['level2', 'level3', 'staff', 'sales', 'accountant'],
+  level2: ['level3', 'staff', 'sales', 'accountant'],
+  level3: ['staff', 'sales', 'accountant'],
 }
 
 export default function UsersPage() {
@@ -106,7 +117,7 @@ export default function UsersPage() {
       const payload = { email: createForm.email, password: createForm.password, full_name: createForm.full_name, role: createForm.role, max_devices: Number(createForm.max_devices) || 1, never_expire: createForm.never_expire }
       if (createForm.username.trim()) payload.username = createForm.username.trim()
       if (createForm.role === 'level2') payload.group_id = createForm.group_id
-      if (createForm.role === 'level3') payload.brand_id = createForm.brand_id
+      if (createForm.role !== 'staff' && BRAND_ROLES.includes(createForm.role)) payload.brand_id = createForm.brand_id
       // zone_id left out entirely when blank -> staff gets all-zone (tabbed) access
       if (createForm.role === 'staff') {
         payload.brand_id = createForm.brand_id
@@ -183,7 +194,7 @@ export default function UsersPage() {
   const brandName = (id) => brands.find((b) => b.id === id)?.name_en
   const groupName = (id) => groups.find((g) => g.id === id)?.name
 
-  const canEditUsers = user.role !== 'staff'
+  const canEditUsers = can(user, 'users.manage')
 
   if (loading) return <p className="text-sm text-slate">Loading…</p>
 
@@ -245,6 +256,7 @@ export default function UsersPage() {
           <Select label="Role" value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value, brand_id: '', group_id: '', zone_id: '' })}>
             {creatableRoles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
           </Select>
+          {ROLE_HINTS[createForm.role] && <p className="-mt-2 text-xs text-slate">{ROLE_HINTS[createForm.role]}</p>}
 
           {createForm.role === 'level2' && (
             <Select label="Group" required value={createForm.group_id} onChange={(e) => setCreateForm({ ...createForm, group_id: e.target.value })}>
@@ -253,7 +265,7 @@ export default function UsersPage() {
             </Select>
           )}
 
-          {(createForm.role === 'level3' || createForm.role === 'staff') && (
+          {BRAND_ROLES.includes(createForm.role) && (
             <Select label="Brand" required value={createForm.brand_id} onChange={(e) => setCreateForm({ ...createForm, brand_id: e.target.value })}>
               <option value="">Select a brand</option>
               {brands.map((b) => <option key={b.id} value={b.id}>{b.name_en}</option>)}
@@ -267,7 +279,7 @@ export default function UsersPage() {
             </Select>
           )}
 
-          {(createForm.role === 'level2' || createForm.role === 'level3' || createForm.role === 'staff') && (
+          {(createForm.role === 'level2' || BRAND_ROLES.includes(createForm.role)) && (
             <Input
               label="Max devices logged in at once"
               type="number"

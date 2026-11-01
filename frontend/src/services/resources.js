@@ -108,3 +108,42 @@ export const imagesApi = {
     return api.post('/images/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data)
   },
 }
+
+// --- Expenses ---
+export const expensesApi = {
+  categories: () => api.get('/expense-categories').then((r) => r.data),
+  list: (brandId, params = {}) => api.get(`/brands/${brandId}/expenses`, { params }).then((r) => r.data),
+  create: (brandId, payload) => api.post(`/brands/${brandId}/expenses`, payload).then((r) => r.data),
+  update: (brandId, id, payload) => api.put(`/brands/${brandId}/expenses/${id}`, payload).then((r) => r.data),
+  remove: (brandId, id) => api.delete(`/brands/${brandId}/expenses/${id}`),
+}
+
+// --- Inventory (stock items, movements, recipes) ---
+export const stockApi = {
+  list: (brandId) => api.get(`/brands/${brandId}/stock-items`).then((r) => r.data),
+  create: (brandId, payload) => api.post(`/brands/${brandId}/stock-items`, payload).then((r) => r.data),
+  update: (brandId, id, payload) => api.put(`/brands/${brandId}/stock-items/${id}`, payload).then((r) => r.data),
+  remove: (brandId, id) => api.delete(`/brands/${brandId}/stock-items/${id}`),
+  movements: (brandId, id) => api.get(`/brands/${brandId}/stock-items/${id}/movements`).then((r) => r.data),
+  addMovement: (brandId, id, payload) => api.post(`/brands/${brandId}/stock-items/${id}/movements`, payload).then((r) => r.data),
+  recipes: (brandId) => api.get(`/brands/${brandId}/recipes`).then((r) => r.data),
+  setRecipe: (brandId, foodId, lines) => api.put(`/brands/${brandId}/foods/${foodId}/recipe`, lines).then((r) => r.data),
+}
+
+// --- Purchasing (suppliers, purchase orders, supplier payments) ---
+export const purchasingApi = {
+  suppliers: (brandId) => api.get(`/brands/${brandId}/suppliers`).then((r) => r.data),
+  createSupplier: (brandId, payload) => api.post(`/brands/${brandId}/suppliers`, payload).then((r) => r.data),
+  updateSupplier: (brandId, id, payload) => api.put(`/brands/${brandId}/suppliers/${id}`, payload).then((r) => r.data),
+  orders: (brandId) => api.get(`/brands/${brandId}/purchase-orders`).then((r) => r.data),
+  createOrder: (brandId, payload) => api.post(`/brands/${brandId}/purchase-orders`, payload).then((r) => r.data),
+  setStatus: (brandId, id, status) => api.patch(`/brands/${brandId}/purchase-orders/${id}/status`, { status }).then((r) => r.data),
+  pay: (brandId, id, payload) => api.post(`/brands/${brandId}/purchase-orders/${id}/payments`, payload).then((r) => r.data),
+}
+
+// --- Finance reports (all take UTC ISO instants: start inclusive, end exclusive) ---
+export const financeApi = {
+  profitLoss: (brandId, params) => api.get(`/brands/${brandId}/reports/profit-loss`, { params }).then((r) => r.data),
+  salesByFood: (brandId, params) => api.get(`/brands/${brandId}/reports/sales-by-food`, { params }).then((r) => r.data),
+  salesByHour: (brandId, params) => api.get(`/brands/${brandId}/reports/sales-by-hour`, { params }).then((r) => r.data),
+}

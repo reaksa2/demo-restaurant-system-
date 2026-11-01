@@ -26,6 +26,9 @@ class CurrentUserInfo(BaseModel):
     group_id: Optional[uuid.UUID] = None   # set for LEVEL2
     brand_id: Optional[uuid.UUID] = None   # set for LEVEL3 and STAFF
     zone_id: Optional[uuid.UUID] = None    # set for STAFF only
+    # What this role may see/do (see core/modules.py). The frontend builds its
+    # sidebar and route guards from this list.
+    permissions: list[str] = []
 
     class Config:
         from_attributes = True
