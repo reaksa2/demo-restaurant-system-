@@ -65,7 +65,7 @@ ROLE_PERMISSIONS: dict[UserRole, set[str]] = {
     UserRole.ACCOUNTANT: {
         BILLS_VIEW, BILLS_VOID, REPORTS_VIEW,
         EXPENSES_VIEW, EXPENSES_MANAGE,          # keep the books
-        PURCHASING_VIEW, PURCHASING_PAY,         # see what we owe suppliers and pay it
+        PURCHASING_VIEW, PURCHASING_MANAGE, PURCHASING_PAY,  # suppliers, purchase orders, pay what we owe
         INVENTORY_VIEW,                          # stock value / levels (read only)
     },
     # Staff keep their existing, separate endpoints (menu display, their own

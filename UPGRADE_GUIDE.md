@@ -8,7 +8,7 @@ This release adds, on top of the billing version:
 | **Sales desk** | Live orders + checkout/payment for one brand | Sales |
 | **Expenses** | Record money out by category; filter, totals, CSV | Accountant, managers |
 | **Inventory** | Stock items, stock in/out/waste/count, low-stock alerts, recipes that deduct stock when food is sold | Managers (edit), Accountant (read-only) |
-| **Purchasing** | Suppliers, purchase orders (draft → ordered → received), supplier payments, amount owed | Managers (create/receive), Accountant (view + pay) |
+| **Purchasing** | Suppliers, purchase orders (draft → ordered → received), supplier payments, amount owed | Managers and Accountant (create/receive/pay) |
 | **Reports** | Profit & Loss, best sellers, busy hours, bills & revenue trend; all-brands or one brand; Excel (CSV) + Print/PDF | Accountant, managers |
 
 Who can do what lives in ONE file: `backend/app/core/modules.py`.
@@ -53,7 +53,7 @@ Foods without a recipe are simply not tracked, so you can roll this out food by 
 * **Stock is deducted when a bill is paid** (or, for brands with billing off, when an order is marked completed). An order is deducted at most once, even if re-opened/re-completed. Cancelled orders never deduct. Stock may go slightly negative if sales outrun counts — do a "Stock count" to correct it.
 * **Profit & Loss is cash-basis**: revenue = bills paid in the period; expenses = expense date in the period. A supplier purchase counts when you PAY it (that payment is auto-recorded as an expense), not when you order/receive it. "Owed to suppliers" and "Stock value" are as-of-now figures.
 * **Average cost**: stock in with a cost updates a weighted-average cost per item; used for the stock-value figure.
-* **Default permissions** (change in `modules.py`): Sales cannot void bills; Accountant can void an *unpaid* bill but cannot take orders/payments; Accountant cannot edit stock or create purchase orders but can pay suppliers.
+* **Default permissions** (change in `modules.py`): Sales cannot void bills; Accountant can void an *unpaid* bill but cannot take orders/payments; Accountant cannot edit stock/recipes but can manage suppliers, create/receive/cancel purchase orders and pay suppliers.
 * All data is per brand. A manager of several brands switches brands with the picker, or chooses "All brands" in Reports.
 
 ## 7. Rollback
